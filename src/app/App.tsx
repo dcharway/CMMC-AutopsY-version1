@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   FolderOpen,
   ClipboardCheck,
+  ShieldCheck,
   Shield,
   Download,
   Brain,
@@ -35,6 +36,8 @@ import { AssessmentWorkflow } from './components/AssessmentWorkflow';
 import { ExportCenter } from './components/ExportCenter';
 import { AIInsights } from './components/AIInsights';
 import { Settings } from './components/Settings';
+import { Affirmations } from './components/Affirmations';
+import { GrcProvider } from './store/grcStore';
 
 const drawerWidth = 280;
 
@@ -67,6 +70,7 @@ const menuItems = [
   { id: 'poam', label: 'POA&M Tracker', icon: AlertTriangle },
   { id: 'evidence', label: 'Evidence Repository', icon: FolderOpen },
   { id: 'assessment', label: 'Assessment Workflow', icon: ClipboardCheck },
+  { id: 'affirmations', label: 'Affirmations', icon: ShieldCheck },
   { id: 'ai-insights', label: 'AI Insights', icon: Brain, badge: 'NEW' },
   { id: 'export', label: 'Export Center', icon: Download },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -87,6 +91,8 @@ export default function App() {
         return <EvidenceRepository />;
       case 'assessment':
         return <AssessmentWorkflow />;
+      case 'affirmations':
+        return <Affirmations />;
       case 'ai-insights':
         return <AIInsights />;
       case 'export':
@@ -94,12 +100,13 @@ export default function App() {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard />;
+        return <EnhancedDashboard />;
     }
   };
 
   return (
     <ThemeProvider theme={theme}>
+      <GrcProvider>
       <CssBaseline />
       <Box sx={{ display: 'flex', height: '100vh' }}>
         {/* App Bar */}
@@ -219,7 +226,7 @@ export default function App() {
                 CMMC Level 2
               </Typography>
               <Typography variant="body2" sx={{ fontSize: '0.85rem', color: '#475569', mb: 1 }}>
-                110 Controls across 14 families
+                110 practices across 14 control families
               </Typography>
               <Typography variant="caption" sx={{ color: '#64748B' }}>
                 Based on NIST SP 800-171
@@ -241,6 +248,7 @@ export default function App() {
           {renderContent()}
         </Box>
       </Box>
+      </GrcProvider>
     </ThemeProvider>
   );
 }

@@ -1,23 +1,33 @@
+export type ControlStatus =
+  | 'Not Started'
+  | 'In Progress'
+  | 'Implemented'
+  | 'Partial'
+  | 'Not Applicable';
+
+export type RiskLevel = 'Low' | 'Medium' | 'High';
+
 export interface Control {
   id: string;
-  family: string;
   familyCode: string;
+  family: string;
   practice: string;
   description: string;
-  status: 'Not Started' | 'In Progress' | 'Implemented' | 'Not Applicable';
+  ssp: string;
+  status: ControlStatus;
   owner: string;
   dueDate: string;
   evidenceIds: string[];
   poamId?: string;
+  narrative: string;
+  notes: string;
   lastUpdated: string;
-  riskLevel: 'Low' | 'Medium' | 'High';
+  riskLevel: RiskLevel;
 }
 
 export interface ControlFamily {
   code: string;
   name: string;
-  controlCount: number;
-  implementedCount: number;
   color: string;
 }
 
@@ -25,18 +35,21 @@ export interface Evidence {
   id: string;
   controlId: string;
   fileName: string;
+  description: string;
   uploadDate: string;
   expirationDate: string;
   status: 'Valid' | 'Expiring Soon' | 'Expired';
   uploadedBy: string;
   version: number;
+  tags: string[];
+  validNaming: boolean;
 }
 
 export interface POAMItem {
   id: string;
   controlId: string;
   finding: string;
-  riskLevel: 'Low' | 'Medium' | 'High';
+  riskLevel: RiskLevel;
   remediationPlan: string;
   dueDate: string;
   status: 'Open' | 'In Progress' | 'Completed' | 'Overdue';
@@ -44,142 +57,270 @@ export interface POAMItem {
   createdDate: string;
 }
 
-export interface Assessment {
-  phase: 'Pre-Assessment' | 'Conformity Assessment' | 'Reporting' | 'Closeout';
-  readiness: number;
-  blockers: string[];
-  completedChecklist: number;
-  totalChecklist: number;
+export interface Affirmation {
+  id: string;
+  year: number;
+  submittedDate: string | null;
+  dueDate: string;
+  status: 'Pending' | 'Submitted' | 'Overdue';
+  affirmedBy: string;
+  notes: string;
 }
 
+export interface AssessmentChecklistItem {
+  id: string;
+  phase: AssessmentPhase;
+  label: string;
+  done: boolean;
+  blocker?: string;
+}
+
+export type AssessmentPhase =
+  | 'Pre-Assessment'
+  | 'Conformity Assessment'
+  | 'Reporting'
+  | 'Closeout';
+
 export const controlFamilies: ControlFamily[] = [
-  { code: 'AC', name: 'Access Control', controlCount: 22, implementedCount: 18, color: '#16A34A' },
-  { code: 'AT', name: 'Awareness and Training', controlCount: 5, implementedCount: 5, color: '#16A34A' },
-  { code: 'AU', name: 'Audit and Accountability', controlCount: 9, implementedCount: 7, color: '#F59E0B' },
-  { code: 'CA', name: 'Assessment, Authorization, and Monitoring', controlCount: 7, implementedCount: 5, color: '#F59E0B' },
-  { code: 'CM', name: 'Configuration Management', controlCount: 11, implementedCount: 9, color: '#16A34A' },
-  { code: 'IA', name: 'Identification and Authentication', controlCount: 11, implementedCount: 11, color: '#16A34A' },
-  { code: 'IR', name: 'Incident Response', controlCount: 5, implementedCount: 3, color: '#DC2626' },
-  { code: 'MA', name: 'Maintenance', controlCount: 6, implementedCount: 6, color: '#16A34A' },
-  { code: 'MP', name: 'Media Protection', controlCount: 7, implementedCount: 6, color: '#F59E0B' },
-  { code: 'PE', name: 'Physical Protection', controlCount: 6, implementedCount: 5, color: '#F59E0B' },
-  { code: 'PS', name: 'Personnel Security', controlCount: 2, implementedCount: 2, color: '#16A34A' },
-  { code: 'RA', name: 'Risk Assessment', controlCount: 5, implementedCount: 3, color: '#DC2626' },
-  { code: 'SC', name: 'System and Communications Protection', controlCount: 20, implementedCount: 15, color: '#F59E0B' },
-  { code: 'SI', name: 'System and Information Integrity', controlCount: 16, implementedCount: 12, color: '#F59E0B' },
+  { code: 'AC', name: 'Access Control', color: '#2563EB' },
+  { code: 'AT', name: 'Awareness & Training', color: '#7C3AED' },
+  { code: 'AU', name: 'Audit & Accountability', color: '#0891B2' },
+  { code: 'CA', name: 'Security Assessment', color: '#9333EA' },
+  { code: 'CM', name: 'Configuration Management', color: '#0D9488' },
+  { code: 'CP', name: 'Contingency Planning', color: '#DB2777' },
+  { code: 'IA', name: 'Identification & Authentication', color: '#16A34A' },
+  { code: 'IR', name: 'Incident Response', color: '#DC2626' },
+  { code: 'MA', name: 'Maintenance', color: '#65A30D' },
+  { code: 'MP', name: 'Media Protection', color: '#CA8A04' },
+  { code: 'PE', name: 'Physical Protection', color: '#EA580C' },
+  { code: 'PS', name: 'Personnel Security', color: '#4F46E5' },
+  { code: 'RA', name: 'Risk Assessment', color: '#B91C1C' },
+  { code: 'SC', name: 'System & Communications Protection', color: '#0369A1' },
+  { code: 'SI', name: 'System & Information Integrity', color: '#7E22CE' },
 ];
 
-// Sample controls (abbreviated for brevity - would contain all 110)
-export const controls: Control[] = Array.from({ length: 110 }, (_, i) => {
-  const familyIndex = Math.floor(i / 8) % controlFamilies.length;
-  const family = controlFamilies[familyIndex];
-  const statusOptions: Control['status'][] = ['Implemented', 'In Progress', 'Not Started'];
-  const status = i < 86 ? 'Implemented' : i < 100 ? 'In Progress' : 'Not Started';
+// Source data based on NIST SP 800-171 / CMMC Level 2 — Appendix D Control Summary
+// (Control ID, Family Code, Family Name, Control Name, SSP §, Requirement Text)
+type Seed = [string, string, string, string, string, string];
 
+const seed: Seed[] = [
+  ['AC.1.1.1', 'AC', 'Access Control', 'System Access Limitations', '3.1.1', 'Limit system access to authorized users, processes acting on behalf of authorized users, and devices (including other systems).'],
+  ['AC.1.1.2', 'AC', 'Access Control', 'Transaction & Function Limitations', '3.1.2', 'Limit system access to the types of transactions and functions that authorized users are permitted to execute.'],
+  ['AC.1.1.3', 'AC', 'Access Control', 'External Connections', '3.1.3', 'Control the flow of CUI in accordance with approved authorizations.'],
+  ['AC.1.1.4', 'AC', 'Access Control', 'Separation of Duties', '3.1.4', 'Separate the duties of individuals to reduce the risk of malevolent activity without collusion.'],
+  ['AC.1.1.5', 'AC', 'Access Control', 'Least Privilege', '3.1.5', 'Employ the principle of least privilege, including for specific security functions and privileged accounts.'],
+  ['AC.1.1.6', 'AC', 'Access Control', 'Non-Privileged Account Use', '3.1.6', 'Use non-privileged accounts or roles when accessing nonsecurity functions.'],
+  ['AC.1.1.7', 'AC', 'Access Control', 'Privileged Functions', '3.1.7', 'Prevent non-privileged users from executing privileged functions and capture the execution of such functions in audit logs.'],
+  ['AC.1.1.8', 'AC', 'Access Control', 'Unsuccessful Logon Attempts', '3.1.8', 'Limit unsuccessful logon attempts.'],
+  ['AC.1.1.9', 'AC', 'Access Control', 'System Use Notification', '3.1.9', 'Provide privacy and security notices consistent with applicable CUI rules.'],
+  ['AC.1.1.10', 'AC', 'Access Control', 'Session Lock', '3.1.10', 'Use session lock with pattern-hiding displays to prevent access and viewing of data after a period of inactivity.'],
+  ['AC.1.1.11', 'AC', 'Access Control', 'Session Termination', '3.1.11', 'Terminate (automatically) a user session after a defined condition.'],
+  ['AC.1.1.12', 'AC', 'Access Control', 'Remote Access Monitoring', '3.1.12', 'Monitor and control remote access sessions.'],
+  ['AC.1.1.13', 'AC', 'Access Control', 'Remote Access Encryption', '3.1.13', 'Employ cryptographic mechanisms to protect the confidentiality of remote access sessions.'],
+  ['AC.1.1.14', 'AC', 'Access Control', 'Remote Access Routing', '3.1.14', 'Route remote access via managed access control points.'],
+  ['AC.1.1.15', 'AC', 'Access Control', 'Remote Access Privileges', '3.1.15', 'Authorize remote execution of privileged commands and remote access to security-relevant information.'],
+  ['AC.1.1.16', 'AC', 'Access Control', 'Wireless Access Authorization', '3.1.16', 'Authorize wireless access prior to allowing such connections.'],
+  ['AC.1.1.17', 'AC', 'Access Control', 'Wireless Access Encryption', '3.1.17', 'Protect wireless access using authentication and encryption.'],
+  ['AC.1.1.18', 'AC', 'Access Control', 'Mobile Device Connection', '3.1.18', 'Control connection of mobile devices.'],
+  ['AC.1.1.19', 'AC', 'Access Control', 'Mobile Device Encryption', '3.1.19', 'Encrypt CUI on mobile devices and mobile computing platforms.'],
+  ['AC.1.1.20', 'AC', 'Access Control', 'External System Use', '3.1.20', 'Verify and control/limit connections to and use of external systems.'],
+  ['AC.1.1.21', 'AC', 'Access Control', 'Portable Storage Use', '3.1.21', 'Control/limit use of portable storage devices.'],
+  ['AC.1.1.22', 'AC', 'Access Control', 'Public Info Posting', '3.1.22', 'Control the posting or processing of CUI on publicly accessible systems.'],
+
+  ['AT.1.1.1', 'AT', 'Awareness & Training', 'Literacy Training', '3.2.1', 'Ensure that managers, systems administrators, and users of organizational systems are made aware of security risks associated with their activities and of the applicable policies, standards, and procedures related to the security of those systems.'],
+  ['AT.1.1.2', 'AT', 'Awareness & Training', 'Role-Based Training', '3.2.2', 'Ensure that personnel are trained to carry out their assigned information security-related duties and responsibilities.'],
+  ['AT.1.1.3', 'AT', 'Awareness & Training', 'Insider Threat Training', '3.2.3', 'Provide security awareness training on recognizing and reporting potential indicators of insider threat.'],
+
+  ['AU.1.1.1', 'AU', 'Audit & Accountability', 'Audit Event Definition', '3.3.1', 'Create and retain system audit logs and records to the extent needed to enable the monitoring, analysis, investigation, and reporting of unlawful or unauthorized system activity.'],
+  ['AU.1.1.2', 'AU', 'Audit & Accountability', 'Audit Content', '3.3.2', 'Ensure that the actions of individual system users can be uniquely traced to those users so they can be held accountable for their actions.'],
+  ['AU.1.1.3', 'AU', 'Audit & Accountability', 'Audit Review', '3.3.3', 'Review and update logged events.'],
+  ['AU.1.1.4', 'AU', 'Audit & Accountability', 'Audit Alerting', '3.3.4', 'Alert in the event of an audit logging process failure.'],
+  ['AU.1.1.5', 'AU', 'Audit & Accountability', 'Audit Correlation', '3.3.5', 'Correlate audit record review, analysis, and reporting processes for investigation and response to indications of unlawful, unauthorized, suspicious, or unusual activity.'],
+  ['AU.1.1.6', 'AU', 'Audit & Accountability', 'Audit Reduction & Reporting', '3.3.6', 'Provide audit record reduction and report generation to support on-demand analysis and reporting.'],
+  ['AU.1.1.7', 'AU', 'Audit & Accountability', 'Audit Time Stamps', '3.3.7', 'Provide a system capability that compares and synchronizes internal system clocks with an authoritative source to generate time stamps for audit records.'],
+  ['AU.1.1.8', 'AU', 'Audit & Accountability', 'Audit Protection', '3.3.8', 'Protect audit information and audit logging tools from unauthorized access, modification, and deletion.'],
+  ['AU.1.1.9', 'AU', 'Audit & Accountability', 'Audit Storage', '3.3.9', 'Limit management of audit logging functionality to a subset of privileged users.'],
+
+  ['CA.1.1.1', 'CA', 'Security Assessment', 'Security Assessment Plan', '3.12.1', 'Develop, document, and periodically update security plans that describe system boundaries, system environments of operation, how security requirements are implemented, and relationships with other systems.'],
+  ['CA.1.1.2', 'CA', 'Security Assessment', 'Security Plan Updates', '3.12.2', 'Develop, document, and periodically update security plans and assess the security controls in organizational systems to determine if controls are effective.'],
+
+  ['CM.1.1.1', 'CM', 'Configuration Management', 'Baseline Configuration', '3.4.1', 'Establish and maintain baseline configurations and inventories of organizational systems (including hardware, software, firmware, and documentation) throughout the respective system development life cycles.'],
+  ['CM.1.1.2', 'CM', 'Configuration Management', 'Security Configuration Settings', '3.4.2', 'Establish and enforce security configuration settings for information technology products employed in organizational systems.'],
+  ['CM.1.1.3', 'CM', 'Configuration Management', 'Configuration Change Control', '3.4.3', 'Track, review, approve or disapprove, and log changes to organizational systems.'],
+  ['CM.1.1.4', 'CM', 'Configuration Management', 'Security Impact Analysis', '3.4.4', 'Analyze the security impact of changes prior to implementation.'],
+  ['CM.1.1.5', 'CM', 'Configuration Management', 'Access Restrictions for Change', '3.4.5', 'Define, document, approve, and enforce physical and logical access restrictions associated with changes to organizational systems.'],
+  ['CM.1.1.6', 'CM', 'Configuration Management', 'Least Functionality', '3.4.6', 'Employ the principle of least functionality by configuring organizational systems to provide only essential capabilities.'],
+  ['CM.1.1.7', 'CM', 'Configuration Management', 'Software Usage Restrictions', '3.4.7', 'Restrict, disable, or prevent the use of nonessential programs, functions, ports, protocols, and services.'],
+  ['CM.1.1.8', 'CM', 'Configuration Management', 'Software Blacklisting/Whitelisting', '3.4.8', 'Apply deny-by-exception (blacklisting) or permit-by-exception (whitelisting) policy to control software execution.'],
+  ['CM.1.1.9', 'CM', 'Configuration Management', 'User-Installed Software', '3.4.9', 'Control and monitor user-installed software.'],
+
+  ['CP.1.1.1', 'CP', 'Contingency Planning', 'Contingency Plan', '3.6.1', 'Establish, maintain, and effectively implement plans for emergency response, backup operations, and post-disaster recovery for organizational systems to ensure the availability of critical information resources and continuity of operations.'],
+  ['CP.1.1.2', 'CP', 'Contingency Planning', 'Contingency Plan Testing', '3.6.2', 'Test the contingency plan for organizational systems to determine the effectiveness of the plan and organizational readiness to execute the plan.'],
+  ['CP.1.1.3', 'CP', 'Contingency Planning', 'Alternate Storage Site', '3.6.3', 'Establish an alternate storage site, including necessary agreements to permit the storage and retrieval of system backup information.'],
+  ['CP.1.1.4', 'CP', 'Contingency Planning', 'Alternate Processing Site', '3.6.4', 'Establish an alternate processing site, including necessary agreements to permit the resumption of system operations for essential missions and business functions.'],
+  ['CP.1.1.5', 'CP', 'Contingency Planning', 'Telecommunications Services', '3.6.5', 'Establish alternate telecommunications services, including necessary agreements to permit the resumption of system operations for essential missions and business functions.'],
+  ['CP.1.1.6', 'CP', 'Contingency Planning', 'Information System Backups', '3.6.6', 'Conduct backups of user-level information contained in organizational systems.'],
+  ['CP.1.1.7', 'CP', 'Contingency Planning', 'System Recovery', '3.6.7', 'Conduct backups of system-level information contained in organizational systems.'],
+  ['CP.1.1.8', 'CP', 'Contingency Planning', 'Backup Protection', '3.6.8', 'Protect the confidentiality, integrity, and availability of backup information at storage locations.'],
+  ['CP.1.1.9', 'CP', 'Contingency Planning', 'Backup Cryptography', '3.6.9', 'Use cryptographic mechanisms to protect the confidentiality and integrity of information at alternate storage sites.'],
+
+  ['IA.1.1.1', 'IA', 'Identification & Authentication', 'User Identification', '3.5.1', 'Identify system users, processes acting on behalf of users, and devices.'],
+  ['IA.1.1.2', 'IA', 'Identification & Authentication', 'User Authentication', '3.5.2', 'Authenticate (or verify) the identities of those users, processes, or devices, as a prerequisite to allowing access to organizational systems.'],
+  ['IA.1.1.3', 'IA', 'Identification & Authentication', 'Device Identification', '3.5.3', 'Use multifactor authentication for local and network access to privileged accounts and for network access to non-privileged accounts.'],
+  ['IA.1.1.4', 'IA', 'Identification & Authentication', 'Replay Resistant Authentication', '3.5.4', 'Employ replay-resistant authentication mechanisms for network access to privileged and non-privileged accounts.'],
+  ['IA.1.1.5', 'IA', 'Identification & Authentication', 'Identifier Management', '3.5.5', 'Prevent reuse of identifiers for a defined period.'],
+  ['IA.1.1.6', 'IA', 'Identification & Authentication', 'Authenticator Management', '3.5.6', 'Disable identifiers after a defined period of inactivity.'],
+  ['IA.1.1.7', 'IA', 'Identification & Authentication', 'Password-Based Auth', '3.5.7', 'Enforce a minimum password complexity and change of characters when new passwords are created.'],
+  ['IA.1.1.8', 'IA', 'Identification & Authentication', 'Password Reuse', '3.5.8', 'Prohibit password reuse for a specified number of generations.'],
+  ['IA.1.1.9', 'IA', 'Identification & Authentication', 'Temporary Passwords', '3.5.9', 'Allow temporary password use for system logons with an immediate change to a permanent password.'],
+  ['IA.1.1.10', 'IA', 'Identification & Authentication', 'Password Storage', '3.5.10', 'Store and transmit only cryptographically-protected passwords.'],
+  ['IA.1.1.11', 'IA', 'Identification & Authentication', 'Password Feedback', '3.5.11', 'Obscure feedback of authentication information.'],
+
+  ['IR.1.1.1', 'IR', 'Incident Response', 'Incident Handling', '3.6.1', 'Establish an operational incident-handling capability for organizational systems that includes preparation, detection, analysis, containment, recovery, and user response activities.'],
+  ['IR.1.1.2', 'IR', 'Incident Response', 'Incident Reporting', '3.6.2', 'Track, document, and report incidents to designated officials and/or authorities both internal and external to the organization.'],
+  ['IR.1.1.3', 'IR', 'Incident Response', 'Incident Response Testing', '3.6.3', 'Test the organizational incident response capability.'],
+
+  ['MA.1.1.1', 'MA', 'Maintenance', 'Maintenance Performance', '3.7.1', 'Perform maintenance on organizational systems.'],
+  ['MA.1.1.2', 'MA', 'Maintenance', 'Maintenance Tools', '3.7.2', 'Provide controls on the tools, techniques, mechanisms, and personnel used to conduct system maintenance.'],
+  ['MA.1.1.3', 'MA', 'Maintenance', 'Nonlocal Maintenance', '3.7.3', 'Ensure equipment removed for off-site maintenance is sanitized of any CUI.'],
+  ['MA.1.1.4', 'MA', 'Maintenance', 'Maintenance Personnel', '3.7.4', 'Check media containing diagnostic and test programs for malicious code before the media are used in organizational systems.'],
+  ['MA.1.1.5', 'MA', 'Maintenance', 'Multifactor Maintenance', '3.7.5', 'Require multifactor authentication to establish nonlocal maintenance sessions via external network connections and terminate such connections when nonlocal maintenance is complete.'],
+  ['MA.1.1.6', 'MA', 'Maintenance', 'Maintenance Supervision', '3.7.6', 'Supervise the maintenance activities of personnel without required access authorizations.'],
+
+  ['MP.1.1.1', 'MP', 'Media Protection', 'Media Access', '3.8.1', 'Protect (i.e., physically control and securely store) system media containing CUI, both paper and digital.'],
+  ['MP.1.1.2', 'MP', 'Media Protection', 'Media Marking', '3.8.2', 'Limit access to CUI on system media to authorized users.'],
+  ['MP.1.1.3', 'MP', 'Media Protection', 'Media Storage', '3.8.3', 'Sanitize or destroy system media containing CUI before disposal or release for reuse.'],
+  ['MP.1.1.4', 'MP', 'Media Protection', 'Media Transport', '3.8.4', 'Mark system media indicating distribution limitations, handling caveats, and applicable CUI markings.'],
+  ['MP.1.1.5', 'MP', 'Media Protection', 'Media Sanitization', '3.8.5', 'Control access to media containing CUI and maintain accountability for media during transport outside of controlled areas.'],
+  ['MP.1.1.6', 'MP', 'Media Protection', 'Media Destruction', '3.8.6', 'Implement cryptographic mechanisms to protect the confidentiality of CUI stored on digital media during transport unless otherwise protected by alternative physical safeguards.'],
+  ['MP.1.1.7', 'MP', 'Media Protection', 'Media Use', '3.8.7', 'Control the use of removable media on system components.'],
+  ['MP.1.1.8', 'MP', 'Media Protection', 'Media Downgrading', '3.8.8', 'Prohibit the use of portable storage devices when such devices have no identifiable owner.'],
+
+  ['PE.1.1.1', 'PE', 'Physical Protection', 'Physical Access Authorizations', '3.10.1', 'Limit physical access to organizational systems, equipment, and the respective operating environments to authorized individuals.'],
+  ['PE.1.1.2', 'PE', 'Physical Protection', 'Physical Access Control', '3.10.2', 'Protect and monitor the physical facility and support infrastructure for organizational systems.'],
+  ['PE.1.1.3', 'PE', 'Physical Protection', 'Access Control for Transmission', '3.10.3', 'Escort visitors and monitor visitor activity.'],
+  ['PE.1.1.4', 'PE', 'Physical Protection', 'Access Control for Output', '3.10.4', 'Maintain audit logs of physical access.'],
+  ['PE.1.1.5', 'PE', 'Physical Protection', 'Physical Access Monitoring', '3.10.5', 'Control and manage physical access devices.'],
+  ['PE.1.1.6', 'PE', 'Physical Protection', 'Access Records', '3.10.6', 'Enforce safeguarding measures for CUI at alternate work sites.'],
+
+  ['PS.1.1.1', 'PS', 'Personnel Security', 'Personnel Screening', '3.9.1', 'Screen individuals prior to authorizing access to organizational systems containing CUI.'],
+  ['PS.1.1.2', 'PS', 'Personnel Security', 'Personnel Termination', '3.9.2', 'Ensure that organizational systems containing CUI are protected during and after personnel actions such as terminations and transfers.'],
+
+  ['RA.1.1.1', 'RA', 'Risk Assessment', 'Risk Assessments', '3.11.1', 'Periodically assess the risk to organizational operations, organizational assets, and individuals, resulting from the operation of organizational systems and the associated processing, storage, or transmission of CUI.'],
+  ['RA.1.1.2', 'RA', 'Risk Assessment', 'Vulnerability Scanning', '3.11.2', 'Scan for vulnerabilities in organizational systems and applications periodically and when new vulnerabilities affecting those systems and applications are identified.'],
+  ['RA.1.1.3', 'RA', 'Risk Assessment', 'Vulnerability Remediation', '3.11.3', 'Remediate vulnerabilities in accordance with risk assessments.'],
+
+  ['SC.1.1.1', 'SC', 'System & Communications Protection', 'Boundary Protection', '3.13.1', 'Monitor, control, and protect communications at the external boundaries and key internal boundaries of organizational systems.'],
+  ['SC.1.1.2', 'SC', 'System & Communications Protection', 'Security Engineering', '3.13.2', 'Employ architectural designs, software development techniques, and systems engineering principles that promote effective information security within organizational systems.'],
+  ['SC.1.1.3', 'SC', 'System & Communications Protection', 'Role Separation', '3.13.3', 'Separate user functionality from system management functionality.'],
+  ['SC.1.1.4', 'SC', 'System & Communications Protection', 'Shared Resource Prevention', '3.13.4', 'Prevent unauthorized and unintended information transfer via shared system resources.'],
+  ['SC.1.1.5', 'SC', 'System & Communications Protection', 'Denial of Service Protection', '3.13.5', 'Implement subnetworks for publicly accessible system components that are physically or logically separated from internal networks.'],
+  ['SC.1.1.6', 'SC', 'System & Communications Protection', 'Resource Priority', '3.13.6', 'Deny network communications traffic by default and allow network communications traffic by exception.'],
+  ['SC.1.1.7', 'SC', 'System & Communications Protection', 'Boundary Protection | Public Access', '3.13.7', 'Prevent remote devices from simultaneously establishing non-remote connections with organizational systems and communicating via some other connection to resources in external networks.'],
+  ['SC.1.1.8', 'SC', 'System & Communications Protection', 'Transmission Confidentiality', '3.13.8', 'Implement cryptographic mechanisms to prevent unauthorized disclosure of CUI during transmission unless otherwise protected by alternative physical safeguards.'],
+  ['SC.1.1.9', 'SC', 'System & Communications Protection', 'Network Disconnect', '3.13.9', 'Terminate network connections associated with communications sessions at the end of the sessions or after a defined period of inactivity.'],
+  ['SC.1.1.10', 'SC', 'System & Communications Protection', 'Cryptographic Key Establishment', '3.13.10', 'Establish and manage cryptographic keys for cryptography employed in organizational systems.'],
+  ['SC.1.1.11', 'SC', 'System & Communications Protection', 'Cryptographic Protection', '3.13.11', 'Employ FIPS-validated cryptography when used to protect the confidentiality of CUI.'],
+  ['SC.1.1.12', 'SC', 'System & Communications Protection', 'Collaborative Device Control', '3.13.12', 'Prohibit remote activation of collaborative computing devices and provide indication of devices in use to users present at the device.'],
+  ['SC.1.1.13', 'SC', 'System & Communications Protection', 'Mobile Code', '3.13.13', 'Control and monitor the use of mobile code.'],
+  ['SC.1.1.14', 'SC', 'System & Communications Protection', 'Voice Over Internet Protocol', '3.13.14', 'Control and monitor the use of Voice over Internet Protocol (VoIP) technologies.'],
+  ['SC.1.1.15', 'SC', 'System & Communications Protection', 'Communications Authenticity', '3.13.15', 'Protect the authenticity of communications sessions.'],
+  ['SC.1.1.16', 'SC', 'System & Communications Protection', 'Data at Rest Protection', '3.13.16', 'Protect the confidentiality of CUI at rest.'],
+
+  ['SI.1.1.1', 'SI', 'System & Information Integrity', 'Flaw Remediation', '3.14.1', 'Identify, report, and correct system flaws in a timely manner.'],
+  ['SI.1.1.2', 'SI', 'System & Information Integrity', 'Malicious Code Protection', '3.14.2', 'Provide protection from malicious code at designated locations within organizational systems.'],
+  ['SI.1.1.3', 'SI', 'System & Information Integrity', 'Security Alerts', '3.14.3', 'Monitor system security alerts and advisories and take action in response.'],
+  ['SI.1.1.4', 'SI', 'System & Information Integrity', 'Malicious Code Update', '3.14.4', 'Update malicious code protection mechanisms when new releases are available.'],
+  ['SI.1.1.5', 'SI', 'System & Information Integrity', 'Spam Protection', '3.14.5', 'Perform periodic scans of organizational systems and real-time scans of files from external sources as files are downloaded, opened, or executed.'],
+  ['SI.1.1.6', 'SI', 'System & Information Integrity', 'Information Input Validation', '3.14.6', 'Monitor organizational systems, including inbound and outbound communications traffic, to detect attacks and indicators of potential attacks.'],
+  ['SI.1.1.7', 'SI', 'System & Information Integrity', 'Error Handling', '3.14.7', 'Identify unauthorized use of organizational systems.'],
+  ['SI.1.1.8', 'SI', 'System & Information Integrity', 'Information Output Handling', '3.14.8', 'Use monitoring tools to detect and protect against unauthorized changes to software and information.'],
+  ['SI.1.1.9', 'SI', 'System & Information Integrity', 'Memory Protection', '3.14.9', 'Provide mechanisms to protect memory from unauthorized code execution.'],
+  ['SI.1.1.10', 'SI', 'System & Information Integrity', 'Information System Monitoring', '3.14.10', 'Monitor organizational systems to detect attacks and indicators of potential attacks in accordance with defined monitoring objectives.'],
+  ['SI.1.1.11', 'SI', 'System & Information Integrity', 'Security Functionality Verification', '3.14.11', 'Identify unauthorized use of organizational systems and respond appropriately.'],
+];
+
+export const STATUS_OPTIONS: ControlStatus[] = [
+  'Not Started',
+  'In Progress',
+  'Implemented',
+  'Partial',
+  'Not Applicable',
+];
+
+export const RISK_LEVELS: RiskLevel[] = ['Low', 'Medium', 'High'];
+
+export const STATUS_COLORS: Record<ControlStatus, string> = {
+  'Not Started': '#9CA3AF',
+  'In Progress': '#F59E0B',
+  Implemented: '#16A34A',
+  Partial: '#0EA5E9',
+  'Not Applicable': '#6B7280',
+};
+
+export const RISK_COLORS: Record<RiskLevel, string> = {
+  Low: '#16A34A',
+  Medium: '#F59E0B',
+  High: '#DC2626',
+};
+
+// Build the 110-control registry from the seed dataset.
+// Initial owners are unassigned and statuses are "Not Started" — the
+// software is shipped as a clean working slate the user fills in.
+export const controls: Control[] = seed.map((row) => {
+  const [id, familyCode, family, practice, ssp, description] = row;
   return {
-    id: `${family.code}.${Math.floor(i / controlFamilies.length) + 1}.${String((i % 8) + 1).padStart(3, '0')}`,
-    family: family.name,
-    familyCode: family.code,
-    practice: `${family.code}.L2-3.${Math.floor(i / controlFamilies.length) + 1}.${(i % 8) + 1}`,
-    description: `Control practice for ${family.name} - Practice ${(i % 8) + 1}`,
-    status,
-    owner: ['John Smith', 'Sarah Johnson', 'Michael Chen'][i % 3],
-    dueDate: '2026-06-30',
-    evidenceIds: status === 'Implemented' ? [`EV-${String(i + 1).padStart(3, '0')}`] : [],
-    lastUpdated: '2026-05-01',
-    riskLevel: ['Low', 'Medium', 'High'][i % 3] as Control['riskLevel'],
+    id,
+    familyCode,
+    family,
+    practice,
+    description,
+    ssp,
+    status: 'Not Started' as ControlStatus,
+    owner: '',
+    dueDate: '',
+    evidenceIds: [],
+    poamId: undefined,
+    narrative: '',
+    notes: '',
+    lastUpdated: new Date().toISOString().slice(0, 10),
+    riskLevel: 'Medium' as RiskLevel,
   };
 });
 
-export const evidenceList: Evidence[] = [
+export const evidenceList: Evidence[] = [];
+
+export const poamList: POAMItem[] = [];
+
+export const initialAffirmations: Affirmation[] = [
   {
-    id: 'EV-001',
-    controlId: 'AC.1.001',
-    fileName: 'AC.1.001_AccessControlPolicy_2026-04-01.pdf',
-    uploadDate: '2026-04-01',
-    expirationDate: '2027-04-01',
-    status: 'Valid',
-    uploadedBy: 'John Smith',
-    version: 2,
-  },
-  {
-    id: 'EV-002',
-    controlId: 'AC.1.001',
-    fileName: 'AC.1.001_UserAccessList_2026-05-01.xlsx',
-    uploadDate: '2026-05-01',
-    expirationDate: '2026-06-01',
-    status: 'Expiring Soon',
-    uploadedBy: 'John Smith',
-    version: 1,
+    id: 'AFF-2026',
+    year: 2026,
+    submittedDate: null,
+    dueDate: '2026-12-31',
+    status: 'Pending',
+    affirmedBy: '',
+    notes: 'Annual CMMC affirmation — all controls met or have approved POA&Ms.',
   },
 ];
 
-export const poamList: POAMItem[] = [
-  {
-    id: 'POAM-001',
-    controlId: controls[2].id,
-    finding: 'CUI flow controls not fully documented across all system boundaries',
-    riskLevel: 'Medium',
-    remediationPlan: 'Complete documentation of CUI flows and implement additional controls',
-    dueDate: '2026-06-15',
-    status: 'In Progress',
-    assignedTo: 'Sarah Johnson',
-    createdDate: '2026-01-15',
-  },
-  {
-    id: 'POAM-002',
-    controlId: controls[95].id,
-    finding: 'Incident response procedures lack CUI-specific protocols',
-    riskLevel: 'High',
-    remediationPlan: 'Develop CUI-specific IR procedures and conduct training',
-    dueDate: '2026-07-15',
-    status: 'Open',
-    assignedTo: 'Amanda Taylor',
-    createdDate: '2025-11-01',
-  },
-  {
-    id: 'POAM-003',
-    controlId: controls[88].id,
-    finding: 'Risk assessment missing supply chain analysis',
-    riskLevel: 'High',
-    remediationPlan: 'Conduct comprehensive supply chain risk assessment',
-    dueDate: '2026-08-01',
-    status: 'Open',
-    assignedTo: 'Kevin White',
-    createdDate: '2025-12-01',
-  },
-  {
-    id: 'POAM-004',
-    controlId: controls[102].id,
-    finding: 'Vulnerability scanning not performed quarterly',
-    riskLevel: 'Medium',
-    remediationPlan: 'Establish quarterly scanning schedule',
-    dueDate: '2026-08-01',
-    status: 'In Progress',
-    assignedTo: 'Kevin White',
-    createdDate: '2026-02-15',
-  },
-  {
-    id: 'POAM-005',
-    controlId: controls[72].id,
-    finding: 'Media sanitization procedures incomplete',
-    riskLevel: 'Low',
-    remediationPlan: 'Update and document media sanitization procedures',
-    dueDate: '2026-06-20',
-    status: 'In Progress',
-    assignedTo: 'Michelle Garcia',
-    createdDate: '2026-03-01',
-  },
+export const assessmentChecklist: AssessmentChecklistItem[] = [
+  // Pre-Assessment
+  { id: 'P1-1', phase: 'Pre-Assessment', label: 'Scope CUI assets and system boundary documented', done: false },
+  { id: 'P1-2', phase: 'Pre-Assessment', label: 'System Security Plan (SSP) drafted', done: false },
+  { id: 'P1-3', phase: 'Pre-Assessment', label: 'All 110 control owners assigned', done: false },
+  { id: 'P1-4', phase: 'Pre-Assessment', label: 'Initial readiness self-score ≥ 90%', done: false },
+  { id: 'P1-5', phase: 'Pre-Assessment', label: 'C3PAO engagement letter signed', done: false },
+  // Conformity Assessment
+  { id: 'P2-1', phase: 'Conformity Assessment', label: 'Evidence packet handed to lead assessor', done: false },
+  { id: 'P2-2', phase: 'Conformity Assessment', label: 'Interview schedule confirmed', done: false },
+  { id: 'P2-3', phase: 'Conformity Assessment', label: 'Onsite/virtual assessment completed', done: false },
+  // Reporting
+  { id: 'P3-1', phase: 'Reporting', label: 'Preliminary findings reviewed', done: false },
+  { id: 'P3-2', phase: 'Reporting', label: 'POA&Ms drafted for any open findings (≤180-day)', done: false },
+  { id: 'P3-3', phase: 'Reporting', label: 'Final assessment report received', done: false },
+  // Closeout
+  { id: 'P4-1', phase: 'Closeout', label: 'SPRS score submitted', done: false },
+  { id: 'P4-2', phase: 'Closeout', label: 'Annual affirmation entered', done: false },
+  { id: 'P4-3', phase: 'Closeout', label: 'Certificate issued and archived', done: false },
 ];
-
-export const assessmentData: Assessment = {
-  phase: 'Pre-Assessment',
-  readiness: 78,
-  blockers: [
-    'IR controls at 60% implementation',
-    'RA.12.004 - Supply chain risk assessment pending',
-    '2 POA&Ms approaching 180-day limit',
-  ],
-  completedChecklist: 23,
-  totalChecklist: 32,
-};

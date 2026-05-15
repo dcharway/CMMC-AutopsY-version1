@@ -2,18 +2,25 @@ import { useMemo } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Legend, LineChart, Line, Area, AreaChart } from 'recharts';
 import { Card, CardContent, Grid, Box, Typography, Chip, LinearProgress } from '@mui/material';
 import { CheckCircle, AlertTriangle, XCircle, Clock, FileText, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
-import { controlFamilies, controls, poamList, evidenceList, assessmentData } from '../data/cmmcControls';
+import { controlFamilies } from '../data/cmmcControls';
+import { useGrc, useReadinessScore, computeEvidenceStatus } from '../store/grcStore';
 
 export function EnhancedDashboard() {
+  const { controls, poams, evidence, checklist } = useGrc();
+  const readiness = useReadinessScore();
+
   const kpis = useMemo(() => {
     const totalControls = controls.length;
     const implementedControls = controls.filter(c => c.status === 'Implemented').length;
     const inProgressControls = controls.filter(c => c.status === 'In Progress').length;
-    const notStartedControls = controls.filter(c => c.status === 'Not Started').length;
-    const openPoams = poamList.filter(p => p.status === 'Open' || p.status === 'In Progress').length;
-    const expiringEvidence = evidenceList.filter(e => e.status === 'Expiring Soon' || e.status === 'Expired').length;
+    const notStartedControls = controls.filter(c => c.status === 'Not Started' || c.status === 'Partial' || c.status === 'Not Applicable').length;
+    const openPoams = poams.filter(p => p.status === 'Open' || p.status === 'In Progress').length;
+    const expiringEvidence = evidence.filter(e => {
+      const s = computeEvidenceStatus(e);
+      return s === 'Expiring Soon' || s === 'Expired';
+    }).length;
 
-    const sprsScore = implementedControls;
+    const sprsScore = readiness.sprs;
 
     return {
       totalControls,
@@ -23,15 +30,15 @@ export function EnhancedDashboard() {
       openPoams,
       expiringEvidence,
       sprsScore,
-      compliancePercentage: Math.round((implementedControls / totalControls) * 100),
+      compliancePercentage: Math.round((implementedControls / Math.max(totalControls, 1)) * 100),
     };
-  }, []);
+  }, [controls, poams, evidence, readiness]);
 
   const familyStatusData = useMemo(() => {
     return controlFamilies.map(family => {
       const familyControls = controls.filter(c => c.familyCode === family.code);
-      const implemented = familyControls.filter(c => c.status === 'Implemented').length;
-      const total = familyControls.length;
+      const implemented = familyControls.filter(c => c.status === 'Implemented' || c.status === 'Not Applicable').length;
+      const total = Math.max(familyControls.length, 1);
       const percentage = Math.round((implemented / total) * 100);
 
       let status = 'Met';
@@ -49,13 +56,13 @@ export function EnhancedDashboard() {
         name: family.code,
         fullName: family.name,
         implemented,
-        total,
+        total: familyControls.length,
         percentage,
         status,
         color,
       };
     });
-  }, []);
+  }, [controls]);
 
   const statusDistribution = useMemo(() => [
     { name: 'Implemented', value: kpis.implementedControls, color: '#16A34A' },
@@ -64,16 +71,36 @@ export function EnhancedDashboard() {
   ], [kpis]);
 
   const riskDistribution = useMemo(() => {
-    const high = poamList.filter(p => p.riskLevel === 'High').length;
-    const medium = poamList.filter(p => p.riskLevel === 'Medium').length;
-    const low = poamList.filter(p => p.riskLevel === 'Low').length;
+    const high = poams.filter(p => p.riskLevel === 'High').length;
+    const medium = poams.filter(p => p.riskLevel === 'Medium').length;
+    const low = poams.filter(p => p.riskLevel === 'Low').length;
 
     return [
       { name: 'High', value: high, color: '#DC2626' },
       { name: 'Medium', value: medium, color: '#F59E0B' },
       { name: 'Low', value: low, color: '#16A34A' },
     ];
-  }, []);
+  }, [poams]);
+
+  const assessmentInfo = useMemo(() => {
+    const completed = checklist.filter(c => c.done).length;
+    // current phase = first phase with incomplete items
+    const phases = ['Pre-Assessment', 'Conformity Assessment', 'Reporting', 'Closeout'] as const;
+    const phase = phases.find(p => {
+      const items = checklist.filter(c => c.phase === p);
+      return items.some(i => !i.done);
+    }) ?? 'Closeout';
+    const blockers = checklist
+      .filter(c => !c.done && c.blocker)
+      .map(c => c.blocker as string);
+    return {
+      phase,
+      readiness: readiness.readiness,
+      completedChecklist: completed,
+      totalChecklist: checklist.length,
+      blockers,
+    };
+  }, [checklist, readiness]);
 
   // Simulated trend data for compliance progress over time
   const complianceTrend = [
@@ -213,37 +240,37 @@ export function EnhancedDashboard() {
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2">
-                Phase: <strong>{assessmentData.phase}</strong>
+                Phase: <strong>{assessmentInfo.phase}</strong>
               </Typography>
               <Typography variant="body2">
-                <strong>{assessmentData.readiness}%</strong> Ready
+                <strong>{assessmentInfo.readiness}%</strong> Ready
               </Typography>
             </Box>
             <LinearProgress
               variant="determinate"
-              value={assessmentData.readiness}
+              value={assessmentInfo.readiness}
               sx={{
                 height: 10,
                 borderRadius: 1,
                 backgroundColor: '#E5E7EB',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: assessmentData.readiness >= 90 ? '#16A34A' : assessmentData.readiness >= 70 ? '#F59E0B' : '#DC2626',
+                  backgroundColor: assessmentInfo.readiness >= 90 ? '#16A34A' : assessmentInfo.readiness >= 70 ? '#F59E0B' : '#DC2626',
                 }
               }}
             />
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Checklist: {assessmentData.completedChecklist}/{assessmentData.totalChecklist} items completed
+            Checklist: {assessmentInfo.completedChecklist}/{assessmentInfo.totalChecklist} items completed
           </Typography>
 
-          {assessmentData.blockers.length > 0 && (
+          {assessmentInfo.blockers.length > 0 && (
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
                 <AlertCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
                 Blockers
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {assessmentData.blockers.map((blocker, index) => (
+                {assessmentInfo.blockers.map((blocker, index) => (
                   <Chip
                     key={index}
                     label={blocker}
