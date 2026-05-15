@@ -17,6 +17,8 @@ import {
   Chip,
 } from '@mui/material';
 import { Download, FileText, FolderArchive, CheckCircle } from 'lucide-react';
+import { useGrc, useReadinessScore, computePoamDerivedStatus, computeEvidenceStatus } from '../store/grcStore';
+import { controlFamilies } from '../data/cmmcControls';
 
 interface ExportItem {
   id: string;
@@ -25,7 +27,38 @@ interface ExportItem {
   selected: boolean;
 }
 
+function downloadBlob(content: string, filename: string, type = 'text/plain') {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function escapeCsv(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function toCsv(rows: Record<string, unknown>[], headers: string[]): string {
+  const head = headers.map(escapeCsv).join(',');
+  const body = rows
+    .map((r) => headers.map((h) => escapeCsv(r[h])).join(','))
+    .join('\n');
+  return `${head}\n${body}`;
+}
+
 export function ExportCenter() {
+  const { controls, poams, evidence, affirmations, checklist } = useGrc();
+  const readiness = useReadinessScore();
   const [exporting, setExporting] = useState(false);
   const [exportComplete, setExportComplete] = useState(false);
   const [exportItems, setExportItems] = useState<ExportItem[]>([
@@ -97,13 +130,187 @@ export function ExportCenter() {
     setExporting(true);
     setExportComplete(false);
 
-    // Simulate export process
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    const selectedIds = new Set(exportItems.filter((i) => i.selected).map((i) => i.id));
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    if (selectedIds.has('controls') || selectedIds.has('ssp')) {
+      const rows = controls.map((c) => ({
+        'Control ID': c.id,
+        Family: c.familyCode,
+        'Family Name': c.family,
+        'Control Name': c.practice,
+        'Requirement Text': c.description,
+        'Implementation Status': c.status,
+        'In SSP Section': c.ssp,
+        'Implementation Narrative': c.narrative,
+        'Evidence Artifacts': c.evidenceIds.join('; '),
+        'POA&M ID': c.poamId ?? '',
+        Owner: c.owner,
+        'Last Reviewed': c.lastUpdated,
+        Notes: c.notes,
+      }));
+      downloadBlob(
+        toCsv(rows, [
+          'Control ID',
+          'Family',
+          'Family Name',
+          'Control Name',
+          'Requirement Text',
+          'Implementation Status',
+          'In SSP Section',
+          'Implementation Narrative',
+          'Evidence Artifacts',
+          'POA&M ID',
+          'Owner',
+          'Last Reviewed',
+          'Notes',
+        ]),
+        `SSP_AppendixD_ControlSummary_${stamp}.csv`,
+        'text/csv',
+      );
+    }
+
+    if (selectedIds.has('poam')) {
+      const rows = poams.map((p) => ({
+        'POA&M ID': p.id,
+        'Control ID': p.controlId,
+        Finding: p.finding,
+        Risk: p.riskLevel,
+        'Remediation Plan': p.remediationPlan,
+        Status: computePoamDerivedStatus(p),
+        'Due Date': p.dueDate,
+        'Assigned To': p.assignedTo,
+        'Created Date': p.createdDate,
+      }));
+      downloadBlob(
+        toCsv(rows, [
+          'POA&M ID',
+          'Control ID',
+          'Finding',
+          'Risk',
+          'Remediation Plan',
+          'Status',
+          'Due Date',
+          'Assigned To',
+          'Created Date',
+        ]),
+        `POAM_${stamp}.csv`,
+        'text/csv',
+      );
+    }
+
+    if (selectedIds.has('evidence')) {
+      const rows = evidence.map((e) => ({
+        'Evidence ID': e.id,
+        'Control ID': e.controlId,
+        'File Name': e.fileName,
+        Description: e.description,
+        Tags: e.tags.join('; '),
+        'Upload Date': e.uploadDate,
+        'Expiration Date': e.expirationDate,
+        Status: computeEvidenceStatus(e),
+        'Uploaded By': e.uploadedBy,
+        Version: e.version,
+        'Naming Valid': e.validNaming ? 'Yes' : 'No',
+      }));
+      downloadBlob(
+        toCsv(rows, [
+          'Evidence ID',
+          'Control ID',
+          'File Name',
+          'Description',
+          'Tags',
+          'Upload Date',
+          'Expiration Date',
+          'Status',
+          'Uploaded By',
+          'Version',
+          'Naming Valid',
+        ]),
+        `Evidence_Index_${stamp}.csv`,
+        'text/csv',
+      );
+    }
+
+    if (selectedIds.has('sprs')) {
+      const familyBreakdown = controlFamilies
+        .map((f) => {
+          const fc = controls.filter((c) => c.familyCode === f.code);
+          const impl = fc.filter(
+            (c) => c.status === 'Implemented' || c.status === 'Not Applicable',
+          ).length;
+          return `${f.code} (${f.name}): ${impl}/${fc.length}`;
+        })
+        .join('\n');
+      const report = `CMMC Level 2 — SPRS Score Report
+Generated: ${stamp}
+
+SPRS Score: ${readiness.sprs} / 110
+Readiness Score: ${readiness.readiness}%
+Controls Implemented: ${readiness.implemented} / ${readiness.total}
+Open POA&Ms: ${readiness.openPoams}
+Overdue POA&Ms: ${readiness.overduePoams}
+Evidence Coverage: ${readiness.evidenceCoverage}%
+
+Family Breakdown:
+${familyBreakdown}
+`;
+      downloadBlob(report, `SPRS_Score_${stamp}.txt`, 'text/plain');
+    }
+
+    if (selectedIds.has('affirmations')) {
+      const rows = affirmations.map((a) => ({
+        'Affirmation ID': a.id,
+        Year: a.year,
+        'Submitted Date': a.submittedDate ?? '',
+        'Due Date': a.dueDate,
+        Status: a.status,
+        'Affirmed By': a.affirmedBy,
+        Notes: a.notes,
+      }));
+      downloadBlob(
+        toCsv(rows, [
+          'Affirmation ID',
+          'Year',
+          'Submitted Date',
+          'Due Date',
+          'Status',
+          'Affirmed By',
+          'Notes',
+        ]),
+        `Affirmations_${stamp}.csv`,
+        'text/csv',
+      );
+    }
+
+    // Always include a JSON manifest with everything (single audit packet)
+    const manifest = {
+      generated: new Date().toISOString(),
+      cmmcLevel: 2,
+      summary: {
+        sprsScore: readiness.sprs,
+        readiness: readiness.readiness,
+        controlsImplemented: readiness.implemented,
+        controlsTotal: readiness.total,
+        openPoams: readiness.openPoams,
+        overduePoams: readiness.overduePoams,
+        evidenceCoverage: readiness.evidenceCoverage,
+      },
+      controls,
+      poams,
+      evidence,
+      affirmations,
+      assessmentChecklist: checklist,
+    };
+    downloadBlob(
+      JSON.stringify(manifest, null, 2),
+      `CMMC_AssessmentPacket_${stamp}.json`,
+      'application/json',
+    );
 
     setExporting(false);
     setExportComplete(true);
 
-    // Reset after 5 seconds
     setTimeout(() => setExportComplete(false), 5000);
   };
 
