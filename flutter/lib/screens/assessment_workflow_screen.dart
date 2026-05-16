@@ -43,40 +43,45 @@ class AssessmentWorkflowScreen extends StatelessWidget {
               title: 'Assessment Workflow',
               subtitle: 'CMMC Assessment Process (CAP) — 4-phase readiness tracker'),
           LayoutBuilder(builder: (ctx, c) {
-            final wide = c.maxWidth > 900;
-            return Flex(
-              direction: wide ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: wide ? 2 : 0,
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < phaseStats.length; i++)
-                            _PhaseSection(
-                              phase: phaseStats[i].$1,
-                              items: phaseStats[i].$2,
-                              done: phaseStats[i].$3,
-                              index: i,
-                              isLast: i == phaseStats.length - 1,
-                            ),
-                        ],
+            final phasesCard = Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < phaseStats.length; i++)
+                      _PhaseSection(
+                        phase: phaseStats[i].$1,
+                        items: phaseStats[i].$2,
+                        done: phaseStats[i].$3,
+                        index: i,
+                        isLast: i == phaseStats.length - 1,
                       ),
-                    ),
-                  ),
+                  ],
                 ),
-                SizedBox(width: wide ? 16 : 0, height: wide ? 0 : 16),
-                Expanded(
-                  flex: wide ? 1 : 0,
-                  child: Column(children: [
-                    _ReadinessPanel(r: r),
-                    const SizedBox(height: 12),
-                    _AuditGate(ready: readyForAudit),
-                  ]),
-                ),
+              ),
+            );
+            final sidePanel = Column(children: [
+              _ReadinessPanel(r: r),
+              const SizedBox(height: 12),
+              _AuditGate(ready: readyForAudit),
+            ]);
+
+            if (c.maxWidth > 900) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: phasesCard),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 1, child: sidePanel),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                phasesCard,
+                const SizedBox(height: 16),
+                sidePanel,
               ],
             );
           }),

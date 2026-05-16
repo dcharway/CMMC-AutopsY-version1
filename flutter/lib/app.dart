@@ -108,19 +108,30 @@ class _ShellState extends State<_Shell> {
       backgroundColor: const Color(0xFF030213),
       foregroundColor: Colors.white,
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: const [
           Icon(Icons.shield_outlined, color: Colors.white),
           SizedBox(width: 12),
-          Text('cyberAutopsy', style: TextStyle(fontWeight: FontWeight.w600)),
+          Flexible(
+            child: Text(
+              'cyberAutopsy',
+              style: TextStyle(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 16),
           child: Center(
-            child: Text(
-              _navEntries[_index].label,
-              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 220),
+              child: Text(
+                _navEntries[_index].label,
+                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ),
@@ -154,13 +165,19 @@ class _Sidebar extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            for (var i = 0; i < _navEntries.length; i++)
-              _SidebarItem(
-                entry: _navEntries[i],
-                selected: i == index,
-                onTap: () => onSelect(i),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  for (var i = 0; i < _navEntries.length; i++)
+                    _SidebarItem(
+                      entry: _navEntries[i],
+                      selected: i == index,
+                      onTap: () => onSelect(i),
+                    ),
+                ],
               ),
-            const Spacer(),
+            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Container(

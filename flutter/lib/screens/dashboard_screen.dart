@@ -33,13 +33,22 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 24),
           LayoutBuilder(builder: (ctx, c) {
             final wide = c.maxWidth > 800;
-            return Flex(
-              direction: wide ? Axis.horizontal : Axis.vertical,
+            if (wide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _StatusPieCard(store: store)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _FamilyHeatmap(store: store)),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                    flex: wide ? 1 : 0, child: _StatusPieCard(store: store)),
-                SizedBox(width: wide ? 16 : 0, height: wide ? 0 : 16),
-                Expanded(flex: wide ? 1 : 0, child: _FamilyHeatmap(store: store)),
+                _StatusPieCard(store: store),
+                const SizedBox(height: 16),
+                _FamilyHeatmap(store: store),
               ],
             );
           }),
