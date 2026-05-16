@@ -12,7 +12,7 @@ void main() {
   runApp(
     ChangeNotifierProvider<GrcStore>.value(
       value: store,
-      child: const CmmcAutopsyApp(),
+      child: const CyberAutopsyApp(),
     ),
   );
 }

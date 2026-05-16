@@ -16,7 +16,7 @@ class SettingsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionHeader(
-              title: 'Settings', subtitle: 'CMMC Autopsy preferences'),
+              title: 'Settings', subtitle: 'cyberAutopsy preferences'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -28,7 +28,7 @@ class SettingsScreen extends StatelessWidget {
                           fontSize: 16, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   const Text(
-                    'CMMC Autopsy — Flutter edition. CMMC Level 2 / NIST SP 800-171 compliance management.',
+                    'cyberAutopsy — Flutter edition. CMMC Level 2 / NIST SP 800-171 compliance management.',
                     style: TextStyle(color: Color(0xFF6B7280)),
                   ),
                   const SizedBox(height: 16),

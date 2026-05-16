@@ -1,6 +1,6 @@
-# CMMC Autopsy — Flutter edition
+# cyberAutopsy — Flutter edition
 
-A Flutter rewrite of the CMMC Autopsy GRC software, targeting **iOS, Android, and web** from a single Dart codebase.
+A Flutter rewrite of the cyberAutopsy GRC software, targeting **iOS, Android, and web** from a single Dart codebase.
 
 This folder ships the application source (`lib/`) and `pubspec.yaml`. The native iOS / Android / web wrappers are generated locally by `flutter create` so they pick up your developer identity, bundle ID, and signing config.
 
@@ -23,8 +23,8 @@ From this directory (`flutter/`):
 
 ```bash
 flutter create . \
-  --org com.cmmcautopsy \
-  --project-name cmmc_autopsy \
+  --org com.cyberautopsy \
+  --project-name cyber_autopsy \
   --platforms=android,ios,web
 ```
 

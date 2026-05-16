@@ -1,5 +1,5 @@
-name: cmmc_autopsy
-description: CMMC Level 2 GRC compliance management — Flutter rewrite of CMMC Autopsy.
+name: cyber_autopsy
+description: cyberAutopsy — CMMC Level 2 / NIST SP 800-171 GRC compliance app.
 publish_to: 'none'
 version: 0.1.0+1
 

@@ -163,19 +163,23 @@ def build_badge(size: int, with_background: bool = True) -> Image.Image:
     draw.line([p1, p2], fill=GREEN, width=cw, joint="curve")
     draw.line([p2, p3], fill=GREEN, width=cw, joint="curve")
 
-    # ---- AUTOPSY wordmark ----
-    label = "AUTOPSY"
-    font_size = int(size * 0.085)
-    font = _load_bold(font_size)
-    tw = draw.textlength(label, font=font)
-    th = font_size
-    label_y = size * 0.74 - th / 2
+    # ---- cyberAUTOPSY wordmark ----
+    main_label = "AUTOPSY"
+    sub_label = "CYBER"
+    main_font_size = int(size * 0.082)
+    sub_font_size = int(size * 0.038)
+    main_font = _load_bold(main_font_size)
+    sub_font = _load_bold(sub_font_size)
+
+    main_w = draw.textlength(main_label, font=main_font)
+    main_h = main_font_size
+    label_y = size * 0.745 - main_h / 2
 
     # Banner under the badge
-    banner_h = th + size * 0.045
+    banner_h = main_h + size * 0.045
     banner_y = label_y - size * 0.022
-    banner_left = cx - tw / 2 - size * 0.06
-    banner_right = cx + tw / 2 + size * 0.06
+    banner_left = cx - main_w / 2 - size * 0.07
+    banner_right = cx + main_w / 2 + size * 0.07
     draw.rounded_rectangle(
         (banner_left, banner_y, banner_right, banner_y + banner_h),
         radius=banner_h / 2,
@@ -183,10 +187,33 @@ def build_badge(size: int, with_background: bool = True) -> Image.Image:
         outline=GOLD_LIGHT,
         width=max(2, size // 320),
     )
-    # Text shadow + fill
-    draw.text((cx - tw / 2 + 2, label_y + 2), label, font=font,
+    # Main text — shadow + fill
+    draw.text((cx - main_w / 2 + 2, label_y + 2), main_label, font=main_font,
               fill=(0, 0, 0, 160))
-    draw.text((cx - tw / 2, label_y), label, font=font, fill=GOLD_HIGHLIGHT)
+    draw.text((cx - main_w / 2, label_y), main_label, font=main_font,
+              fill=GOLD_HIGHLIGHT)
+
+    # Small CYBER prefix tag above the banner
+    sub_w = draw.textlength(sub_label, font=sub_font)
+    pill_pad_x = size * 0.018
+    pill_pad_y = size * 0.008
+    pill_w = sub_w + pill_pad_x * 2
+    pill_h = sub_font_size + pill_pad_y * 2
+    pill_left = cx - pill_w / 2
+    pill_top = banner_y - pill_h * 0.55
+    draw.rounded_rectangle(
+        (pill_left, pill_top, pill_left + pill_w, pill_top + pill_h),
+        radius=pill_h / 2,
+        fill=GOLD_MID,
+        outline=GOLD_OUTER,
+        width=max(2, size // 360),
+    )
+    draw.text(
+        (cx - sub_w / 2, pill_top + pill_pad_y - size * 0.004),
+        sub_label,
+        font=sub_font,
+        fill=NAVY,
+    )
 
     return img
 

@@ -174,11 +174,11 @@ class _ExportCenterScreenState extends State<ExportCenterScreen> {
       'checklist': store.checklist.map((c) => c.toJson()).toList(),
     };
     await writeText(
-        'CMMC_AssessmentPacket_$stamp.json', const JsonEncoder.withIndent('  ').convert(manifest));
+        'cyberAutopsy_AssessmentPacket_$stamp.json', const JsonEncoder.withIndent('  ').convert(manifest));
 
     try {
       await Share.shareXFiles(files,
-          subject: 'CMMC Autopsy assessment packet — $stamp');
+          subject: 'cyberAutopsy assessment packet — $stamp');
       setState(() => _lastResult =
           'Generated ${files.length} file(s) and opened the share sheet.');
     } catch (e) {
