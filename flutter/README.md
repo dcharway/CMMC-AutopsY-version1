@@ -35,6 +35,9 @@ That command **adds** `android/`, `ios/`, and `web/` folders without touching th
 ```bash
 flutter pub get
 
+# (one time, or whenever you change assets/icon/icon.png)
+dart run flutter_launcher_icons
+
 # Pick a target:
 flutter run                # whichever device is connected
 flutter run -d chrome      # web
