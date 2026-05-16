@@ -45,7 +45,7 @@ class AuthState extends ChangeNotifier {
         await Parse().initialize(
           kParseApplicationId,
           kParseServerUrl,
-          clientKey: kParseClientKey,
+          clientKey: parseClientKeyForPlatform(),
           autoSendSessionId: true,
           debug: kDebugMode,
         );
