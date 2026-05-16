@@ -1,107 +1,165 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:parse_server_sdk_flutter/parse_server_sdk_flutter.dart';
+
+import 'parse_config.dart';
 
 enum UserRole { admin, contributor }
 
-class _DemoAccount {
-  const _DemoAccount(this.email, this.password, this.role, this.displayName);
-  final String email;
-  final String password;
-  final UserRole role;
-  final String displayName;
-}
-
-// Demo credentials for the local-only build. Replace with real auth (OIDC,
-// SSO, etc.) when wiring to a backend.
-const _demoAccounts = <_DemoAccount>[
-  _DemoAccount('admin@cyberautopsy.com', 'admin', UserRole.admin,
-      'RPO Administrator'),
-  _DemoAccount('contributor@cyberautopsy.com', 'contributor',
-      UserRole.contributor, 'Control Owner'),
-];
-
-const _kPrefsEmail = 'cyber_autopsy_session_email';
-
+/// Auth-state container backed by Back4App / Parse Server.
+///
+/// - [hydrate] initializes the Parse SDK and restores any saved session.
+/// - [signIn], [signUp], [signOut] delegate to ParseUser.
+/// - [isAdmin] is true when the authenticated user has `role == 'admin'`
+///   on their `_User` record.
 class AuthState extends ChangeNotifier {
-  String? _email;
-  UserRole? _role;
-  String? _displayName;
+  ParseUser? _user;
   bool _hydrated = false;
   String? _lastError;
+  bool _initialized = false;
 
   bool get hydrated => _hydrated;
-  bool get loggedIn => _role != null;
-  bool get isAdmin => _role == UserRole.admin;
-  String? get email => _email;
-  String? get displayName => _displayName;
-  UserRole? get role => _role;
+  bool get loggedIn => _user != null;
+  String? get email => _user?.emailAddress ?? _user?.username;
+  String? get displayName {
+    final n = _user?.get<String>('displayName');
+    if (n != null && n.trim().isNotEmpty) return n;
+    return _user?.username;
+  }
+
+  UserRole? get role {
+    if (_user == null) return null;
+    final r = _user!.get<String>(kRoleFieldName);
+    if (r == 'admin') return UserRole.admin;
+    return UserRole.contributor;
+  }
+
+  bool get isAdmin => role == UserRole.admin;
   String? get lastError => _lastError;
 
+  /// Initialize Parse + restore any persisted session.
   Future<void> hydrate() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString(_kPrefsEmail);
-      if (email != null) {
-        final acct = _demoAccounts
-            .where((a) => a.email.toLowerCase() == email.toLowerCase())
-            .firstOrNull;
-        if (acct != null) {
-          _email = acct.email;
-          _role = acct.role;
-          _displayName = acct.displayName;
-        }
+      if (!_initialized) {
+        await Parse().initialize(
+          kParseApplicationId,
+          kParseServerUrl,
+          clientKey: kParseClientKey,
+          autoSendSessionId: true,
+          debug: kDebugMode,
+        );
+        _initialized = true;
       }
-    } catch (_) {
-      // ignore — first launch
+      final stored = await ParseUser.currentUser() as ParseUser?;
+      if (stored != null) {
+        // Refresh from server in case role / displayName changed.
+        final fresh = await stored.fetch();
+        _user = fresh.success ? fresh.result as ParseUser : stored;
+      }
+    } catch (e) {
+      debugPrint('AuthState.hydrate: $e');
     } finally {
       _hydrated = true;
       notifyListeners();
     }
   }
 
-  /// Returns true on success. Sets [lastError] on failure.
+  /// Returns true on success. On failure sets [lastError] and notifies.
   Future<bool> signIn({required String email, required String password}) async {
-    final acct = _demoAccounts
-        .where((a) =>
-            a.email.toLowerCase() == email.trim().toLowerCase() &&
-            a.password == password)
-        .firstOrNull;
-    if (acct == null) {
-      _lastError = 'Invalid email or password.';
+    _lastError = null;
+    notifyListeners();
+    try {
+      final user = ParseUser(email.trim(), password, email.trim());
+      final res = await user.login();
+      if (!res.success) {
+        _lastError = _humanize(res.error?.message) ??
+            'Sign-in failed. Check your email and password.';
+        notifyListeners();
+        return false;
+      }
+      _user = res.result as ParseUser;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastError = 'Network error: $e';
       notifyListeners();
       return false;
     }
-    _email = acct.email;
-    _role = acct.role;
-    _displayName = acct.displayName;
+  }
+
+  /// Registers a new account on Back4App. If [asAdmin] is true the user is
+  /// flagged with `role: 'admin'` so they land on the admin console.
+  Future<bool> signUp({
+    required String email,
+    required String password,
+    String? displayName,
+    bool asAdmin = true,
+  }) async {
     _lastError = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kPrefsEmail, acct.email);
     notifyListeners();
-    return true;
+    try {
+      final user = ParseUser(email.trim(), password, email.trim());
+      if (displayName != null && displayName.trim().isNotEmpty) {
+        user.set('displayName', displayName.trim());
+      }
+      user.set(kRoleFieldName, asAdmin ? 'admin' : 'contributor');
+      final res = await user.signUp();
+      if (!res.success) {
+        _lastError = _humanize(res.error?.message) ??
+            'Sign-up failed. Try a different email or stronger password.';
+        notifyListeners();
+        return false;
+      }
+      _user = res.result as ParseUser;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastError = 'Network error: $e';
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<void> signOut() async {
-    _email = null;
-    _role = null;
-    _displayName = null;
+    try {
+      final current = await ParseUser.currentUser() as ParseUser?;
+      await current?.logout();
+    } catch (e) {
+      debugPrint('AuthState.signOut: $e');
+    }
+    _user = null;
     _lastError = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kPrefsEmail);
     notifyListeners();
   }
 
-  /// For the demo banner on the login screen.
-  static List<({String email, String password, String role})> get demoHints =>
-      _demoAccounts
-          .map((a) => (
-                email: a.email,
-                password: a.password,
-                role: a.role == UserRole.admin ? 'RPO Admin' : 'Contributor'
-              ))
-          .toList();
-}
+  Future<bool> resetPassword(String email) async {
+    try {
+      final user = ParseUser(null, null, email.trim());
+      final res = await user.requestPasswordReset();
+      if (!res.success) {
+        _lastError = _humanize(res.error?.message);
+        notifyListeners();
+        return false;
+      }
+      return true;
+    } catch (e) {
+      _lastError = 'Network error: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 
-extension<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
+  String? _humanize(String? raw) {
+    if (raw == null) return null;
+    // Strip Parse's verbose prefixes
+    if (raw.toLowerCase().contains('invalid login')) {
+      return 'Invalid email or password.';
+    }
+    if (raw.toLowerCase().contains('account already exists')) {
+      return 'An account with that email already exists.';
+    }
+    if (raw.toLowerCase().contains('email address is invalid')) {
+      return 'That email address is not valid.';
+    }
+    return raw;
+  }
 }

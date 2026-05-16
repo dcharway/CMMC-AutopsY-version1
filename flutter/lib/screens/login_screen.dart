@@ -10,37 +10,64 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+enum _Mode { signIn, signUp }
+
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _displayName = TextEditingController();
   final _form = GlobalKey<FormState>();
   bool _obscure = true;
   bool _busy = false;
   bool _remember = true;
+  _Mode _mode = _Mode.signIn;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _displayName.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
-    final ok = await context.read<AuthState>().signIn(
-          email: _email.text,
-          password: _password.text,
-        );
+    final auth = context.read<AuthState>();
+    final ok = _mode == _Mode.signIn
+        ? await auth.signIn(email: _email.text, password: _password.text)
+        : await auth.signUp(
+            email: _email.text,
+            password: _password.text,
+            displayName: _displayName.text,
+            asAdmin: true,
+          );
     if (!mounted) return;
     setState(() => _busy = false);
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(context.read<AuthState>().lastError ?? 'Sign-in failed'),
+            content: Text(auth.lastError ?? 'Authentication failed'),
             backgroundColor: const Color(0xFFDC2626)),
       );
     }
+  }
+
+  Future<void> _onForgot() async {
+    if (_email.text.trim().isEmpty || !_email.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter your email above first, then tap Forgot password.'),
+      ));
+      return;
+    }
+    final auth = context.read<AuthState>();
+    final ok = await auth.resetPassword(_email.text);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? 'If an account exists for ${_email.text}, a reset link is on its way.'
+          : (auth.lastError ?? 'Could not send reset email.')),
+    ));
   }
 
   @override
@@ -49,19 +76,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final isWide = size.width >= 900;
 
     final form = _LoginForm(
+      mode: _mode,
+      onChangeMode: (m) => setState(() => _mode = m),
       formKey: _form,
       email: _email,
       password: _password,
+      displayName: _displayName,
       obscure: _obscure,
       onToggleObscure: () => setState(() => _obscure = !_obscure),
       remember: _remember,
       onRemember: (v) => setState(() => _remember = v ?? true),
       busy: _busy,
       onSubmit: _submit,
-      onFillDemo: (email, password) {
-        _email.text = email;
-        _password.text = password;
-      },
+      onForgot: _onForgot,
     );
 
     return Scaffold(
@@ -208,28 +235,36 @@ class _HeroPane extends StatelessWidget {
 
 class _LoginForm extends StatelessWidget {
   const _LoginForm({
+    required this.mode,
+    required this.onChangeMode,
     required this.formKey,
     required this.email,
     required this.password,
+    required this.displayName,
     required this.obscure,
     required this.onToggleObscure,
     required this.remember,
     required this.onRemember,
     required this.busy,
     required this.onSubmit,
-    required this.onFillDemo,
+    required this.onForgot,
   });
 
+  final _Mode mode;
+  final ValueChanged<_Mode> onChangeMode;
   final GlobalKey<FormState> formKey;
   final TextEditingController email;
   final TextEditingController password;
+  final TextEditingController displayName;
   final bool obscure;
   final VoidCallback onToggleObscure;
   final bool remember;
   final ValueChanged<bool?> onRemember;
   final bool busy;
   final VoidCallback onSubmit;
-  final void Function(String email, String password) onFillDemo;
+  final VoidCallback onForgot;
+
+  bool get _isSignUp => mode == _Mode.signUp;
 
   @override
   Widget build(BuildContext context) {
@@ -238,15 +273,36 @@ class _LoginForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Sign in',
-              style: TextStyle(
+          Text(_isSignUp ? 'Create admin account' : 'Sign in',
+              style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF0F172A))),
           const SizedBox(height: 4),
-          const Text('Access your RPO administrator workspace.',
-              style: TextStyle(color: Color(0xFF64748B))),
-          const SizedBox(height: 24),
+          Text(
+            _isSignUp
+                ? 'Register a Back4App user with admin privileges for the RPO console.'
+                : 'Access your RPO administrator workspace.',
+            style: const TextStyle(color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 16),
+          _ModeToggle(mode: mode, onChange: onChangeMode),
+          const SizedBox(height: 16),
+          if (_isSignUp) ...[
+            TextFormField(
+              controller: displayName,
+              autofillHints: const [AutofillHints.name],
+              decoration: const InputDecoration(
+                labelText: 'Full name',
+                prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => (v == null || v.trim().length < 2)
+                  ? 'Enter your name'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+          ],
           TextFormField(
             controller: email,
             keyboardType: TextInputType.emailAddress,
@@ -260,11 +316,13 @@ class _LoginForm extends StatelessWidget {
                 ? 'Enter a valid email'
                 : null,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           TextFormField(
             controller: password,
             obscureText: obscure,
-            autofillHints: const [AutofillHints.password],
+            autofillHints: _isSignUp
+                ? const [AutofillHints.newPassword]
+                : const [AutofillHints.password],
             onFieldSubmitted: (_) => onSubmit(),
             decoration: InputDecoration(
               labelText: 'Password',
@@ -275,30 +333,30 @@ class _LoginForm extends StatelessWidget {
                     size: 18),
                 onPressed: onToggleObscure,
               ),
+              helperText: _isSignUp ? 'Minimum 8 characters recommended.' : null,
             ),
-            validator: (v) => (v == null || v.isEmpty)
-                ? 'Enter your password'
-                : null,
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Enter your password';
+              if (_isSignUp && v.length < 6) {
+                return 'Password should be at least 6 characters';
+              }
+              return null;
+            },
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Checkbox(value: remember, onChanged: onRemember),
-                const Text('Stay signed in'),
-              ]),
-              TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text(
-                        'Password reset is not wired to a backend in this build.'),
-                  ));
-                },
-                child: const Text('Forgot password?'),
-              ),
-            ],
-          ),
+          const SizedBox(height: 8),
+          if (!_isSignUp)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: [
+                  Checkbox(value: remember, onChanged: onRemember),
+                  const Text('Stay signed in'),
+                ]),
+                TextButton(
+                    onPressed: onForgot,
+                    child: const Text('Forgot password?')),
+              ],
+            ),
           const SizedBox(height: 8),
           SizedBox(
             height: 48,
@@ -316,79 +374,97 @@ class _LoginForm extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.login),
-              label: Text(busy ? 'Signing in…' : 'Sign in'),
+                  : Icon(_isSignUp ? Icons.person_add_alt_1 : Icons.login),
+              label: Text(busy
+                  ? (_isSignUp ? 'Creating account…' : 'Signing in…')
+                  : (_isSignUp ? 'Create account' : 'Sign in')),
             ),
           ),
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAF5E6),
-              border: Border.all(color: const Color(0xFFE9C56F)),
+              color: const Color(0xFFF8FAFC),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(children: [
-                  Icon(Icons.info_outline,
-                      size: 16, color: Color(0xFF92400E)),
-                  SizedBox(width: 6),
-                  Text('Demo accounts',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF92400E))),
-                ]),
-                const SizedBox(height: 6),
-                for (final h in AuthState.demoHints) ...[
-                  InkWell(
-                    onTap: () => onFillDemo(h.email, h.password),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF030213),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(h.role,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 11)),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text('${h.email} · ${h.password}',
-                              style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                  color: Color(0xFF1F2937))),
-                        ),
-                        const Icon(Icons.chevron_right, size: 16),
-                      ]),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 2),
-                const Text(
-                  'Tap a row to autofill credentials.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+            child: const Row(children: [
+              Icon(Icons.cloud_done_outlined,
+                  size: 16, color: Color(0xFF0F172A)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Authenticated by Back4App (Parse Server).',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF334155)),
                 ),
-              ],
-            ),
+              ),
+            ]),
           ),
           const SizedBox(height: 16),
           const Center(
             child: Text(
-              '© cyberAutopsy · single-tenant demo build',
+              '© cyberAutopsy',
               style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ModeToggle extends StatelessWidget {
+  const _ModeToggle({required this.mode, required this.onChange});
+  final _Mode mode;
+  final ValueChanged<_Mode> onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tab(String label, _Mode value) {
+      final selected = mode == value;
+      return Expanded(
+        child: InkWell(
+          onTap: () => onChange(value),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: selected
+                  ? const [
+                      BoxShadow(
+                          color: Color(0x14000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 1))
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected
+                    ? const Color(0xFF0F172A)
+                    : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(children: [
+        tab('Sign in', _Mode.signIn),
+        tab('Create account', _Mode.signUp),
+      ]),
     );
   }
 }
