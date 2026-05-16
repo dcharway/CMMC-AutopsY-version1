@@ -81,9 +81,11 @@ class GrcStore extends ChangeNotifier {
             .map((j) =>
                 ReadinessChecklistItem.fromJson(j as Map<String, dynamic>))
             .toList();
-        final byId = {for (final r in storedRead) r.id: r};
+        final readinessById = <String, ReadinessChecklistItem>{
+          for (final r in storedRead) r.id: r,
+        };
         _readiness = seedReadinessChecklist()
-            .map((r) => byId.containsKey(r.id) ? byId[r.id]! : r)
+            .map((r) => readinessById[r.id] ?? r)
             .toList();
       }
     } catch (e) {
