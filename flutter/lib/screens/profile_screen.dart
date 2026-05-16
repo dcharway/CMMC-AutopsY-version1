@@ -9,6 +9,37 @@ import '../widgets/common.dart';
 const _gold = Color(0xFFE9C56F);
 const _ink = Color(0xFF03050E);
 
+/// Live POA&M + SPRS derived from the registry. Pushed into the profile
+/// so an export packet always carries the freshest numbers.
+class ProfileLiveStats {
+  ProfileLiveStats({
+    required this.sprsScore,
+    required this.activePoamCount,
+    required this.oldestPoamDate,
+  });
+  final int sprsScore;
+  final int activePoamCount;
+  final String oldestPoamDate;
+}
+
+ProfileLiveStats computeProfileLiveStats(GrcStore store) {
+  final activePoams = store.poams
+      .where((p) => p.derivedStatus != PoamStatus.completed)
+      .toList();
+  activePoams.sort((a, b) => a.createdDate.compareTo(b.createdDate));
+  final unmet = store.controls
+      .where((c) =>
+          c.status != ControlStatus.implemented &&
+          c.status != ControlStatus.notApplicable)
+      .length;
+  return ProfileLiveStats(
+    sprsScore: 110 - unmet,
+    activePoamCount: activePoams.length,
+    oldestPoamDate:
+        activePoams.isEmpty ? '' : activePoams.first.createdDate,
+  );
+}
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -18,6 +49,22 @@ class ProfileScreen extends StatelessWidget {
     if (!store.hydrated) {
       return const Center(child: CircularProgressIndicator());
     }
+    final stats = computeProfileLiveStats(store);
+    // Mirror live values into the persisted profile so JSON/CSV exports
+    // always see them. Run as a microtask so we don't mutate during build.
+    final p = store.profile;
+    if (p.currentSPRSScore != stats.sprsScore ||
+        p.activePoamCount != stats.activePoamCount ||
+        p.oldestPoamDate != stats.oldestPoamDate) {
+      Future.microtask(() {
+        store.mutateProfile((pp) {
+          pp.currentSPRSScore = stats.sprsScore;
+          pp.activePoamCount = stats.activePoamCount;
+          pp.oldestPoamDate = stats.oldestPoamDate;
+        });
+      });
+    }
+
     return SingleChildScrollView(
       padding: EdgeInsets.zero,
       child: Column(
@@ -35,11 +82,11 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 _SystemBoundarySection(profile: store.profile),
                 const SizedBox(height: 12),
-                _AssessmentHistorySection(profile: store.profile),
+                _AssessmentHistorySection(profile: store.profile, stats: stats),
                 const SizedBox(height: 12),
                 _AffirmationSection(profile: store.profile),
                 const SizedBox(height: 12),
-                _PoamSection(profile: store.profile),
+                _PoamSection(profile: store.profile, stats: stats),
                 const SizedBox(height: 12),
                 _ContactsSection(profile: store.profile),
                 const SizedBox(height: 12),
@@ -560,8 +607,10 @@ class _SystemBoundarySection extends StatelessWidget {
 }
 
 class _AssessmentHistorySection extends StatelessWidget {
-  const _AssessmentHistorySection({required this.profile});
+  const _AssessmentHistorySection(
+      {required this.profile, required this.stats});
   final EnterpriseProfile profile;
+  final ProfileLiveStats stats;
   @override
   Widget build(BuildContext context) {
     final save = _saverFor(context);
@@ -617,11 +666,11 @@ class _AssessmentHistorySection extends StatelessWidget {
         _field('Last assessment report ID', profile.lastAssessmentReportId,
             (v) => save((p) => p.lastAssessmentReportId = v)),
         TwoColumn(
-          left: _field('Current SPRS score (0-110)',
-              '${profile.currentSPRSScore}',
-              (v) => save(
-                  (p) => p.currentSPRSScore = int.tryParse(v) ?? 0),
-              keyboardType: TextInputType.number),
+          left: _LiveStatField(
+            label: 'Current SPRS score (0-110)',
+            value: '${stats.sprsScore}',
+            hint: 'Auto-computed from the Control Registry',
+          ),
           right: _field('SPRS submission date',
               profile.sprsSubmissionDate,
               (v) => save((p) => p.sprsSubmissionDate = v)),
@@ -630,6 +679,38 @@ class _AssessmentHistorySection extends StatelessWidget {
             profile.sprsExpirationDate,
             (v) => save((p) => p.sprsExpirationDate = v)),
       ]),
+    );
+  }
+}
+
+class _LiveStatField extends StatelessWidget {
+  const _LiveStatField({
+    required this.label,
+    required this.value,
+    required this.hint,
+  });
+  final String label;
+  final String value;
+  final String hint;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          border: const OutlineInputBorder(),
+          helperText: hint,
+          suffixIcon: const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.sync, size: 16, color: Color(0xFF16A34A)),
+          ),
+        ),
+        child: Text(value,
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w700)),
+      ),
     );
   }
 }
@@ -664,8 +745,9 @@ class _AffirmationSection extends StatelessWidget {
 }
 
 class _PoamSection extends StatelessWidget {
-  const _PoamSection({required this.profile});
+  const _PoamSection({required this.profile, required this.stats});
   final EnterpriseProfile profile;
+  final ProfileLiveStats stats;
   @override
   Widget build(BuildContext context) {
     final save = _saverFor(context);
@@ -675,14 +757,16 @@ class _PoamSection extends StatelessWidget {
       subtitle: 'CMMC 2.0 allows limited POA&M, ≤180 days',
       child: Column(children: [
         TwoColumn(
-          left: _field('Active POA&M count',
-              '${profile.activePoamCount}',
-              (v) => save(
-                  (p) => p.activePoamCount = int.tryParse(v) ?? 0),
-              keyboardType: TextInputType.number),
-          right: _field('Oldest POA&M date',
-              profile.oldestPoamDate,
-              (v) => save((p) => p.oldestPoamDate = v)),
+          left: _LiveStatField(
+            label: 'Active POA&M count',
+            value: '${stats.activePoamCount}',
+            hint: 'Auto-computed from the POA&M Tracker',
+          ),
+          right: _LiveStatField(
+            label: 'Oldest POA&M date',
+            value: stats.oldestPoamDate.isEmpty ? '—' : stats.oldestPoamDate,
+            hint: 'Earliest open POA&M creation date',
+          ),
         ),
         _field('POA&M closeout plan date',
             profile.poamCloseoutPlanDate,

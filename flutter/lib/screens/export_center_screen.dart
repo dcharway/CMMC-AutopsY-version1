@@ -27,6 +27,8 @@ class _ExportCenterScreenState extends State<ExportCenterScreen> {
     'evidence': true,
     'sprs': true,
     'affirmations': true,
+    'profile': true,
+    'readiness': true,
   };
   bool _busy = false;
   String? _lastResult;
@@ -43,6 +45,8 @@ class _ExportCenterScreenState extends State<ExportCenterScreen> {
       ('evidence', 'Evidence Index', 'CSV catalog of evidence artifacts'),
       ('sprs', 'SPRS Score Report', 'Plaintext score breakdown by family'),
       ('affirmations', 'Annual Affirmations', 'CSV of yearly attestations'),
+      ('profile', 'Organization Profile (EnterpriseProfile)', 'JSON of OSA identifiers, scope, contacts'),
+      ('readiness', 'Readiness Checklist', 'CSV of the 12 Pre-Assessment deliverables'),
     ];
 
     return SingleChildScrollView(
@@ -162,16 +166,28 @@ class _ExportCenterScreenState extends State<ExportCenterScreen> {
       await writeText(
           'Affirmations_$stamp.csv', _affirmationsCsv(store.affirmations));
     }
+    if (_selected['profile']!) {
+      await writeText(
+        'OSA_Profile_$stamp.json',
+        const JsonEncoder.withIndent('  ').convert(store.profile.toJson()),
+      );
+    }
+    if (_selected['readiness']!) {
+      await writeText(
+          'Readiness_Checklist_$stamp.csv', _readinessCsv(store.readiness));
+    }
 
     // Always include manifest
     final manifest = {
       'generated': DateTime.now().toIso8601String(),
       'cmmcLevel': 2,
+      'profile': store.profile.toJson(),
       'controls': store.controls.map((c) => c.toJson()).toList(),
       'poams': store.poams.map((p) => p.toJson()).toList(),
       'evidence': store.evidence.map((e) => e.toJson()).toList(),
       'affirmations': store.affirmations.map((a) => a.toJson()).toList(),
       'checklist': store.checklist.map((c) => c.toJson()).toList(),
+      'readiness': store.readiness.map((r) => r.toJson()).toList(),
     };
     await writeText(
         'cyberAutopsy_AssessmentPacket_$stamp.json', const JsonEncoder.withIndent('  ').convert(manifest));
@@ -251,6 +267,37 @@ String _evidenceCsv(List<Evidence> evidence) {
           EvidenceStatus.expired => 'Expired',
         },
         e.uploadedBy, e.version, e.validNaming ? 'Yes' : 'No',
+      ],
+  ]);
+}
+
+String _readinessCsv(List<ReadinessChecklistItem> items) {
+  final headers = [
+    '#',
+    'Artifact Requested',
+    'Related Control(s)',
+    'CAP Phase',
+    'Required Format',
+    'Provided By',
+    'Due Date',
+    'Status',
+    'Files Uploaded',
+    'Notes',
+  ];
+  return _csv([
+    headers,
+    for (final r in items)
+      [
+        r.id,
+        r.artifact,
+        r.relatedControls.join('; '),
+        r.capPhase,
+        r.requiredFormat,
+        r.providedBy,
+        r.dueDate,
+        r.status.label,
+        r.files.map((f) => f.fileName).join('; '),
+        r.notes,
       ],
   ]);
 }
