@@ -10,6 +10,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/evidence_repository_screen.dart';
 import 'screens/export_center_screen.dart';
 import 'screens/poam_tracker_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/readiness_checklist_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/auth.dart';
@@ -35,6 +36,8 @@ final _navEntries = <_NavEntry>[
   _NavEntry('Admin Home', Icons.workspace_premium_outlined,
       (_) => const AdminHomeScreen(),
       adminOnly: true),
+  _NavEntry('Organization Profile', Icons.business_center_outlined,
+      (_) => const ProfileScreen()),
   _NavEntry('Dashboard', Icons.dashboard_outlined, (_) => const DashboardScreen()),
   _NavEntry('Control Registry', Icons.fact_check_outlined, (_) => const ControlRegistryScreen()),
   _NavEntry('POA&M Tracker', Icons.warning_amber_outlined, (_) => const PoamTrackerScreen()),

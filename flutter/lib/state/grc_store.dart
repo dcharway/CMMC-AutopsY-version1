@@ -33,6 +33,7 @@ class GrcStore extends ChangeNotifier {
   List<Affirmation> _affirmations = seedAffirmations();
   List<ChecklistItem> _checklist = seedChecklist();
   List<ReadinessChecklistItem> _readiness = seedReadinessChecklist();
+  EnterpriseProfile _profile = EnterpriseProfile();
   bool _hydrated = false;
 
   bool get hydrated => _hydrated;
@@ -42,6 +43,7 @@ class GrcStore extends ChangeNotifier {
   List<Affirmation> get affirmations => List.unmodifiable(_affirmations);
   List<ChecklistItem> get checklist => List.unmodifiable(_checklist);
   List<ReadinessChecklistItem> get readiness => List.unmodifiable(_readiness);
+  EnterpriseProfile get profile => _profile;
 
   Future<void> hydrate() async {
     try {
@@ -87,6 +89,11 @@ class GrcStore extends ChangeNotifier {
         _readiness = seedReadinessChecklist()
             .map((r) => readinessById[r.id] ?? r)
             .toList();
+
+        if (m['profile'] != null) {
+          _profile =
+              EnterpriseProfile.fromJson(m['profile'] as Map<String, dynamic>);
+        }
       }
     } catch (e) {
       debugPrint('GrcStore.hydrate failed: $e');
@@ -106,6 +113,7 @@ class GrcStore extends ChangeNotifier {
         'affirmations': _affirmations.map((c) => c.toJson()).toList(),
         'checklist': _checklist.map((c) => c.toJson()).toList(),
         'readiness': _readiness.map((c) => c.toJson()).toList(),
+        'profile': _profile.toJson(),
       };
       await prefs.setString(_kStoreKey, jsonEncode(payload));
     } catch (e) {
@@ -328,6 +336,22 @@ class GrcStore extends ChangeNotifier {
     _emit();
   }
 
+  // Organization Profile -----------------------------------------------------
+  void updateProfile(EnterpriseProfile profile, {String? updatedBy}) {
+    _profile = profile;
+    _profile.lastUpdated = _today();
+    if (updatedBy != null) _profile.lastUpdatedBy = updatedBy;
+    _emit();
+  }
+
+  void mutateProfile(void Function(EnterpriseProfile p) fn,
+      {String? updatedBy}) {
+    fn(_profile);
+    _profile.lastUpdated = _today();
+    if (updatedBy != null) _profile.lastUpdatedBy = updatedBy;
+    _emit();
+  }
+
   void resetAll() {
     _controls = seedControls();
     _evidence = [];
@@ -335,6 +359,7 @@ class GrcStore extends ChangeNotifier {
     _affirmations = seedAffirmations();
     _checklist = seedChecklist();
     _readiness = seedReadinessChecklist();
+    _profile = EnterpriseProfile();
     _emit();
   }
 }

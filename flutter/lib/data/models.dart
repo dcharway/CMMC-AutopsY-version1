@@ -440,6 +440,278 @@ class ReadinessChecklistItem {
       );
 }
 
+// ── Organization Profile (OSA enterprise profile) ────────────────────────
+
+enum HostingType {
+  onPrem('On-Prem'),
+  cloud('Cloud'),
+  hybrid('Hybrid');
+
+  const HostingType(this.label);
+  final String label;
+
+  static HostingType fromLabel(String? s) =>
+      HostingType.values.firstWhere((e) => e.label == s,
+          orElse: () => HostingType.onPrem);
+}
+
+enum CloudProvider {
+  awsGovCloud('AWS GovCloud'),
+  azureGov('Azure Gov'),
+  other('Other'),
+  none('—');
+
+  const CloudProvider(this.label);
+  final String label;
+
+  static CloudProvider fromLabel(String? s) =>
+      CloudProvider.values.firstWhere((e) => e.label == s,
+          orElse: () => CloudProvider.none);
+}
+
+enum CertStatus {
+  notAssessed('Not Assessed', Color(0xFF6B7280)),
+  inProgress('In Progress', Color(0xFFF59E0B)),
+  certified('Certified', Color(0xFF16A34A)),
+  poam('POA&M', Color(0xFF0EA5E9)),
+  expired('Expired', Color(0xFFDC2626));
+
+  const CertStatus(this.label, this.color);
+  final String label;
+  final Color color;
+
+  static CertStatus fromLabel(String? s) =>
+      CertStatus.values.firstWhere((e) => e.label == s,
+          orElse: () => CertStatus.notAssessed);
+}
+
+class ContactPerson {
+  ContactPerson({this.name = '', this.title = '', this.email = '', this.phone = ''});
+
+  String name;
+  String title;
+  String email;
+  String phone;
+
+  bool get isEmpty =>
+      name.isEmpty && title.isEmpty && email.isEmpty && phone.isEmpty;
+
+  Map<String, dynamic> toJson() =>
+      {'name': name, 'title': title, 'email': email, 'phone': phone};
+
+  static ContactPerson fromJson(Map<String, dynamic>? j) => ContactPerson(
+        name: j?['name'] ?? '',
+        title: j?['title'] ?? '',
+        email: j?['email'] ?? '',
+        phone: j?['phone'] ?? '',
+      );
+}
+
+class EnterpriseProfile {
+  EnterpriseProfile({
+    // Identifiers
+    this.organizationName = '',
+    this.dbaName = '',
+    this.cageCode = '',
+    this.dunsNumber = '',
+    this.uei = '',
+    this.tin = '',
+    // Contract scope
+    this.isPrimeContractor = false,
+    this.isSubcontractor = false,
+    this.primeCageCode = '',
+    List<String>? dodContractNumbers,
+    this.handlesCUI = false,
+    List<String>? cuiCategories,
+    this.estimatedCUIUsers = 0,
+    // System boundary
+    this.systemName = '',
+    this.systemBoundaryDescription = '',
+    this.authorizationBoundary = '',
+    ContactPerson? systemOwner,
+    ContactPerson? isso,
+    this.hostingType = HostingType.onPrem,
+    this.cloudProvider = CloudProvider.none,
+    this.fedrampId = '',
+    // Assessment history
+    this.cmmcLevel = 2,
+    this.currentCertificationStatus = CertStatus.notAssessed,
+    this.lastAssessmentDate = '',
+    this.lastAssessmentC3PAO = '',
+    this.lastAssessmentReportId = '',
+    this.currentSPRSScore = 0,
+    this.sprsSubmissionDate = '',
+    this.sprsExpirationDate = '',
+    // Affirmation
+    this.lastAffirmationDate = '',
+    this.nextAffirmationDue = '',
+    ContactPerson? affirmationPOC,
+    // POA&M
+    this.activePoamCount = 0,
+    this.oldestPoamDate = '',
+    this.poamCloseoutPlanDate = '',
+    // Contacts
+    ContactPerson? technicalPOC,
+    ContactPerson? businessPOC,
+    ContactPerson? incidentResponsePOC,
+    // Metadata
+    String? lastUpdated,
+    this.lastUpdatedBy = '',
+  })  : dodContractNumbers = dodContractNumbers ?? [],
+        cuiCategories = cuiCategories ?? [],
+        systemOwner = systemOwner ?? ContactPerson(),
+        isso = isso ?? ContactPerson(),
+        affirmationPOC = affirmationPOC ?? ContactPerson(),
+        technicalPOC = technicalPOC ?? ContactPerson(),
+        businessPOC = businessPOC ?? ContactPerson(),
+        incidentResponsePOC = incidentResponsePOC ?? ContactPerson(),
+        lastUpdated =
+            lastUpdated ?? DateTime.now().toIso8601String().substring(0, 10);
+
+  String organizationName;
+  String dbaName;
+  String cageCode;
+  String dunsNumber;
+  String uei;
+  String tin;
+
+  bool isPrimeContractor;
+  bool isSubcontractor;
+  String primeCageCode;
+  List<String> dodContractNumbers;
+  bool handlesCUI;
+  List<String> cuiCategories;
+  int estimatedCUIUsers;
+
+  String systemName;
+  String systemBoundaryDescription;
+  String authorizationBoundary;
+  ContactPerson systemOwner;
+  ContactPerson isso;
+  HostingType hostingType;
+  CloudProvider cloudProvider;
+  String fedrampId;
+
+  int cmmcLevel; // 1, 2, 3
+  CertStatus currentCertificationStatus;
+  String lastAssessmentDate;
+  String lastAssessmentC3PAO;
+  String lastAssessmentReportId;
+  int currentSPRSScore;
+  String sprsSubmissionDate;
+  String sprsExpirationDate;
+
+  String lastAffirmationDate;
+  String nextAffirmationDue;
+  ContactPerson affirmationPOC;
+
+  int activePoamCount;
+  String oldestPoamDate;
+  String poamCloseoutPlanDate;
+
+  ContactPerson technicalPOC;
+  ContactPerson businessPOC;
+  ContactPerson incidentResponsePOC;
+
+  String lastUpdated;
+  String lastUpdatedBy;
+
+  Map<String, dynamic> toJson() => {
+        'organizationName': organizationName,
+        'dbaName': dbaName,
+        'cageCode': cageCode,
+        'dunsNumber': dunsNumber,
+        'uei': uei,
+        'tin': tin,
+        'isPrimeContractor': isPrimeContractor,
+        'isSubcontractor': isSubcontractor,
+        'primeCageCode': primeCageCode,
+        'dodContractNumbers': dodContractNumbers,
+        'handlesCUI': handlesCUI,
+        'cuiCategories': cuiCategories,
+        'estimatedCUIUsers': estimatedCUIUsers,
+        'systemName': systemName,
+        'systemBoundaryDescription': systemBoundaryDescription,
+        'authorizationBoundary': authorizationBoundary,
+        'systemOwner': systemOwner.toJson(),
+        'isso': isso.toJson(),
+        'hostingType': hostingType.label,
+        'cloudProvider': cloudProvider.label,
+        'fedrampId': fedrampId,
+        'cmmcLevel': cmmcLevel,
+        'currentCertificationStatus': currentCertificationStatus.label,
+        'lastAssessmentDate': lastAssessmentDate,
+        'lastAssessmentC3PAO': lastAssessmentC3PAO,
+        'lastAssessmentReportId': lastAssessmentReportId,
+        'currentSPRSScore': currentSPRSScore,
+        'sprsSubmissionDate': sprsSubmissionDate,
+        'sprsExpirationDate': sprsExpirationDate,
+        'lastAffirmationDate': lastAffirmationDate,
+        'nextAffirmationDue': nextAffirmationDue,
+        'affirmationPOC': affirmationPOC.toJson(),
+        'activePoamCount': activePoamCount,
+        'oldestPoamDate': oldestPoamDate,
+        'poamCloseoutPlanDate': poamCloseoutPlanDate,
+        'technicalPOC': technicalPOC.toJson(),
+        'businessPOC': businessPOC.toJson(),
+        'incidentResponsePOC': incidentResponsePOC.toJson(),
+        'lastUpdated': lastUpdated,
+        'lastUpdatedBy': lastUpdatedBy,
+      };
+
+  static EnterpriseProfile fromJson(Map<String, dynamic>? j) {
+    if (j == null) return EnterpriseProfile();
+    return EnterpriseProfile(
+      organizationName: j['organizationName'] ?? '',
+      dbaName: j['dbaName'] ?? '',
+      cageCode: j['cageCode'] ?? '',
+      dunsNumber: j['dunsNumber'] ?? '',
+      uei: j['uei'] ?? '',
+      tin: j['tin'] ?? '',
+      isPrimeContractor: j['isPrimeContractor'] ?? false,
+      isSubcontractor: j['isSubcontractor'] ?? false,
+      primeCageCode: j['primeCageCode'] ?? '',
+      dodContractNumbers: List<String>.from(j['dodContractNumbers'] ?? []),
+      handlesCUI: j['handlesCUI'] ?? false,
+      cuiCategories: List<String>.from(j['cuiCategories'] ?? []),
+      estimatedCUIUsers: j['estimatedCUIUsers'] ?? 0,
+      systemName: j['systemName'] ?? '',
+      systemBoundaryDescription: j['systemBoundaryDescription'] ?? '',
+      authorizationBoundary: j['authorizationBoundary'] ?? '',
+      systemOwner:
+          ContactPerson.fromJson(j['systemOwner'] as Map<String, dynamic>?),
+      isso: ContactPerson.fromJson(j['isso'] as Map<String, dynamic>?),
+      hostingType: HostingType.fromLabel(j['hostingType']),
+      cloudProvider: CloudProvider.fromLabel(j['cloudProvider']),
+      fedrampId: j['fedrampId'] ?? '',
+      cmmcLevel: j['cmmcLevel'] ?? 2,
+      currentCertificationStatus:
+          CertStatus.fromLabel(j['currentCertificationStatus']),
+      lastAssessmentDate: j['lastAssessmentDate'] ?? '',
+      lastAssessmentC3PAO: j['lastAssessmentC3PAO'] ?? '',
+      lastAssessmentReportId: j['lastAssessmentReportId'] ?? '',
+      currentSPRSScore: j['currentSPRSScore'] ?? 0,
+      sprsSubmissionDate: j['sprsSubmissionDate'] ?? '',
+      sprsExpirationDate: j['sprsExpirationDate'] ?? '',
+      lastAffirmationDate: j['lastAffirmationDate'] ?? '',
+      nextAffirmationDue: j['nextAffirmationDue'] ?? '',
+      affirmationPOC: ContactPerson.fromJson(
+          j['affirmationPOC'] as Map<String, dynamic>?),
+      activePoamCount: j['activePoamCount'] ?? 0,
+      oldestPoamDate: j['oldestPoamDate'] ?? '',
+      poamCloseoutPlanDate: j['poamCloseoutPlanDate'] ?? '',
+      technicalPOC:
+          ContactPerson.fromJson(j['technicalPOC'] as Map<String, dynamic>?),
+      businessPOC:
+          ContactPerson.fromJson(j['businessPOC'] as Map<String, dynamic>?),
+      incidentResponsePOC: ContactPerson.fromJson(
+          j['incidentResponsePOC'] as Map<String, dynamic>?),
+      lastUpdated: j['lastUpdated'],
+      lastUpdatedBy: j['lastUpdatedBy'] ?? '',
+    );
+  }
+}
+
 class ChecklistItem {
   ChecklistItem({
     required this.id,
