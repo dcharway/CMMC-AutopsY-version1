@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:parse_server_sdk_flutter/parse_server_sdk_flutter.dart';
 
@@ -51,9 +53,11 @@ class AuthState extends ChangeNotifier {
       }
       final stored = await ParseUser.currentUser() as ParseUser?;
       if (stored != null) {
-        // Refresh from server in case role / displayName changed.
-        final fresh = await stored.fetch();
-        _user = fresh.success ? fresh.result as ParseUser : stored;
+        _user = stored;
+        // Try to refresh role / displayName from the server in the background.
+        // We don't block startup on this — if it fails (offline, expired
+        // session) the cached values are good enough until next login.
+        unawaited(_refreshCurrentUser(stored));
       }
     } catch (e) {
       debugPrint('AuthState.hydrate: $e');
@@ -145,6 +149,18 @@ class AuthState extends ChangeNotifier {
       _lastError = 'Network error: $e';
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> _refreshCurrentUser(ParseUser stored) async {
+    try {
+      final refreshed = await stored.fetch();
+      if (refreshed is ParseUser) {
+        _user = refreshed;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('AuthState._refreshCurrentUser: $e');
     }
   }
 
