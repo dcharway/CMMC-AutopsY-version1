@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/evidence_requirements.dart';
 import '../data/models.dart';
 import '../state/grc_store.dart';
 import '../widgets/common.dart';
@@ -282,12 +283,46 @@ class _UploadDialog extends StatefulWidget {
 
 class _UploadDialogState extends State<_UploadDialog> {
   String? _controlId;
+  String? _artifactKind;
   String _fileName = '';
   final _desc = TextEditingController();
   final _expiry = TextEditingController();
   final _uploadedBy = TextEditingController();
   final _tagInput = TextEditingController();
   final List<String> _tags = [];
+
+  void _onControlChanged(String? value) {
+    setState(() {
+      _controlId = value;
+      // Pre-pick the first acceptable artifact for convenience.
+      final req = value == null ? null : requirementFor(value);
+      _artifactKind = req?.artifacts.firstOrNull;
+      _maybeSeedDescription();
+    });
+  }
+
+  void _onArtifactChanged(String? value) {
+    setState(() {
+      _artifactKind = value;
+      _maybeSeedDescription();
+    });
+  }
+
+  /// If the user hasn't typed their own description yet, prefill it with the
+  /// picked artifact name. Once they edit, we never overwrite.
+  void _maybeSeedDescription() {
+    final req =
+        _controlId == null ? null : requirementFor(_controlId!);
+    if (req == null || _artifactKind == null) return;
+    if (_desc.text.trim().isNotEmpty && !_seededDescription) return;
+    _desc.text = _artifactKind!;
+    _seededDescription = true;
+    if (!_tags.contains(req.evidenceType)) {
+      _tags.add(req.evidenceType);
+    }
+  }
+
+  bool _seededDescription = false;
 
   @override
   void dispose() {
@@ -348,8 +383,32 @@ class _UploadDialogState extends State<_UploadDialog> {
                       child: Text('${c.id} — ${c.practice}',
                           overflow: TextOverflow.ellipsis)),
               ],
-              onChanged: (v) => setState(() => _controlId = v),
+              onChanged: _onControlChanged,
             ),
+            if (_controlId != null) ...[
+              const SizedBox(height: 12),
+              _RequirementHint(controlId: _controlId!),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _artifactKind,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Acceptable evidence (artifact)',
+                  helperText:
+                      'C3PAO-accepted artifact for this control. Pick one — you can upload more files later.',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final a
+                      in (requirementFor(_controlId!)?.artifacts ?? const <String>[]))
+                    DropdownMenuItem(
+                      value: a,
+                      child: Text(a, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: _onArtifactChanged,
+              ),
+            ],
             const SizedBox(height: 12),
             Row(children: [
               OutlinedButton.icon(
@@ -461,6 +520,7 @@ class _UploadDialogState extends State<_UploadDialog> {
                             expirationDate: _expiry.text,
                             uploadedBy: _uploadedBy.text,
                             tags: _tags,
+                            artifactKind: _artifactKind ?? '',
                           );
                           Navigator.of(context).pop();
                         },
@@ -469,6 +529,56 @@ class _UploadDialogState extends State<_UploadDialog> {
               ],
             ),
             const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RequirementHint extends StatelessWidget {
+  const _RequirementHint({required this.controlId});
+  final String controlId;
+
+  @override
+  Widget build(BuildContext context) {
+    final req = requirementFor(controlId);
+    if (req == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        border: Border.all(color: const Color(0xFFFCD34D)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('What the C3PAO expects',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF92400E))),
+          const SizedBox(height: 4),
+          _kv('Evidence type', req.evidenceType),
+          _kv('Sample', req.sample),
+          _kv('Notes', req.notes),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
+          children: [
+            TextSpan(
+                text: '$label: ',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(text: value),
           ],
         ),
       ),
