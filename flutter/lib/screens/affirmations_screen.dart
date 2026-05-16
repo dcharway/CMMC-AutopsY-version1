@@ -33,24 +33,13 @@ class AffirmationsScreen extends StatelessWidget {
               subtitle:
                   'Submit and track yearly attestations that all CMMC controls are met or covered by an approved POA&M.'),
           LayoutBuilder(builder: (ctx, c) {
-            final wide = c.maxWidth > 900;
-            return Flex(
-              direction: wide ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            final list = Column(
               children: [
-                Expanded(
-                  flex: wide ? 2 : 0,
-                  child: Column(
-                    children: [
-                      for (final a in store.affirmations)
-                        _AffirmationCard(item: a, eligible: eligible),
-                    ],
-                  ),
-                ),
-                SizedBox(width: wide ? 16 : 0, height: wide ? 0 : 16),
-                Expanded(
-                  flex: wide ? 1 : 0,
-                  child: Card(
+                for (final a in store.affirmations)
+                  _AffirmationCard(item: a, eligible: eligible),
+              ],
+            );
+            final eligibilityCard = Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -135,9 +124,20 @@ class AffirmationsScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ],
+                  );
+            if (c.maxWidth > 900) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: list),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 1, child: eligibilityCard),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [list, const SizedBox(height: 16), eligibilityCard],
             );
           }),
         ],
