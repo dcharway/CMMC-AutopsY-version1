@@ -10,6 +10,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/evidence_repository_screen.dart';
 import 'screens/export_center_screen.dart';
 import 'screens/poam_tracker_screen.dart';
+import 'screens/readiness_checklist_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/auth.dart';
 
@@ -38,6 +39,7 @@ final _navEntries = <_NavEntry>[
   _NavEntry('Control Registry', Icons.fact_check_outlined, (_) => const ControlRegistryScreen()),
   _NavEntry('POA&M Tracker', Icons.warning_amber_outlined, (_) => const PoamTrackerScreen()),
   _NavEntry('Evidence Repository', Icons.folder_open_outlined, (_) => const EvidenceRepositoryScreen()),
+  _NavEntry('Readiness Checklist', Icons.task_alt_outlined, (_) => const ReadinessChecklistScreen()),
   _NavEntry('Assessment Workflow', Icons.checklist_outlined, (_) => const AssessmentWorkflowScreen()),
   _NavEntry('Affirmations', Icons.verified_user_outlined, (_) => const AffirmationsScreen()),
   _NavEntry('AI Insights', Icons.auto_awesome_outlined, (_) => const AiInsightsScreen(), badge: 'NEW'),

@@ -340,6 +340,106 @@ class Affirmation {
       );
 }
 
+// ── Readiness Checklist (org-level deliverables) ──────────────────────────
+
+enum ReadinessStatus {
+  notStarted('Not Started', Color(0xFF9CA3AF)),
+  inProgress('In Progress', Color(0xFFF59E0B)),
+  submitted('Submitted', Color(0xFF2563EB)),
+  accepted('Accepted', Color(0xFF16A34A)),
+  rejected('Rejected', Color(0xFFDC2626));
+
+  const ReadinessStatus(this.label, this.color);
+  final String label;
+  final Color color;
+
+  static ReadinessStatus fromLabel(String? s) =>
+      ReadinessStatus.values.firstWhere((e) => e.label == s,
+          orElse: () => ReadinessStatus.notStarted);
+}
+
+class ReadinessArtifact {
+  ReadinessArtifact({
+    required this.id,
+    required this.fileName,
+    required this.uploadDate,
+    this.uploadedBy = '',
+  });
+  final String id;
+  String fileName;
+  String uploadDate;
+  String uploadedBy;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'fileName': fileName,
+        'uploadDate': uploadDate,
+        'uploadedBy': uploadedBy,
+      };
+
+  static ReadinessArtifact fromJson(Map<String, dynamic> j) => ReadinessArtifact(
+        id: j['id'],
+        fileName: j['fileName'],
+        uploadDate: j['uploadDate'],
+        uploadedBy: j['uploadedBy'] ?? '',
+      );
+}
+
+class ReadinessChecklistItem {
+  ReadinessChecklistItem({
+    required this.id,
+    required this.artifact,
+    required this.relatedControls,
+    required this.capPhase,
+    required this.requiredFormat,
+    required this.providedBy,
+    required this.dueDate,
+    this.status = ReadinessStatus.notStarted,
+    this.notes = '',
+    List<ReadinessArtifact>? files,
+  }) : files = files ?? [];
+
+  final String id;
+  final String artifact;
+  final List<String> relatedControls;
+  final String capPhase;
+  final String requiredFormat;
+  String providedBy;
+  String dueDate;
+  ReadinessStatus status;
+  String notes;
+  List<ReadinessArtifact> files;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'artifact': artifact,
+        'relatedControls': relatedControls,
+        'capPhase': capPhase,
+        'requiredFormat': requiredFormat,
+        'providedBy': providedBy,
+        'dueDate': dueDate,
+        'status': status.label,
+        'notes': notes,
+        'files': files.map((f) => f.toJson()).toList(),
+      };
+
+  static ReadinessChecklistItem fromJson(Map<String, dynamic> j) =>
+      ReadinessChecklistItem(
+        id: j['id'],
+        artifact: j['artifact'],
+        relatedControls: List<String>.from(j['relatedControls'] ?? []),
+        capPhase: j['capPhase'] ?? 'Readiness',
+        requiredFormat: j['requiredFormat'] ?? '',
+        providedBy: j['providedBy'] ?? '',
+        dueDate: j['dueDate'] ?? '',
+        status: ReadinessStatus.fromLabel(j['status']),
+        notes: j['notes'] ?? '',
+        files: (j['files'] as List? ?? [])
+            .map((x) => ReadinessArtifact.fromJson(x as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class ChecklistItem {
   ChecklistItem({
     required this.id,

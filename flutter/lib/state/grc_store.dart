@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/cmmc_controls.dart';
 import '../data/models.dart';
+import '../data/readiness_checklist.dart';
 
 const _kStoreKey = 'cmmc_autopsy_state_v1';
 
@@ -31,6 +32,7 @@ class GrcStore extends ChangeNotifier {
   List<PoamItem> _poams = [];
   List<Affirmation> _affirmations = seedAffirmations();
   List<ChecklistItem> _checklist = seedChecklist();
+  List<ReadinessChecklistItem> _readiness = seedReadinessChecklist();
   bool _hydrated = false;
 
   bool get hydrated => _hydrated;
@@ -39,6 +41,7 @@ class GrcStore extends ChangeNotifier {
   List<PoamItem> get poams => List.unmodifiable(_poams);
   List<Affirmation> get affirmations => List.unmodifiable(_affirmations);
   List<ChecklistItem> get checklist => List.unmodifiable(_checklist);
+  List<ReadinessChecklistItem> get readiness => List.unmodifiable(_readiness);
 
   Future<void> hydrate() async {
     try {
@@ -71,6 +74,17 @@ class GrcStore extends ChangeNotifier {
             .map((j) => ChecklistItem.fromJson(j as Map<String, dynamic>))
             .toList();
         if (_checklist.isEmpty) _checklist = seedChecklist();
+
+        // Merge readiness checklist on top of the latest seed so newly
+        // added deliverables show up but stored progress is preserved.
+        final storedRead = (m['readiness'] as List? ?? [])
+            .map((j) =>
+                ReadinessChecklistItem.fromJson(j as Map<String, dynamic>))
+            .toList();
+        final byId = {for (final r in storedRead) r.id: r};
+        _readiness = seedReadinessChecklist()
+            .map((r) => byId.containsKey(r.id) ? byId[r.id]! : r)
+            .toList();
       }
     } catch (e) {
       debugPrint('GrcStore.hydrate failed: $e');
@@ -89,6 +103,7 @@ class GrcStore extends ChangeNotifier {
         'poams': _poams.map((c) => c.toJson()).toList(),
         'affirmations': _affirmations.map((c) => c.toJson()).toList(),
         'checklist': _checklist.map((c) => c.toJson()).toList(),
+        'readiness': _readiness.map((c) => c.toJson()).toList(),
       };
       await prefs.setString(_kStoreKey, jsonEncode(payload));
     } catch (e) {
@@ -262,12 +277,62 @@ class GrcStore extends ChangeNotifier {
     _emit();
   }
 
+  // Readiness checklist ----------------------------------------------------
+  ReadinessArtifact attachReadinessFile({
+    required String itemId,
+    required String fileName,
+    String uploadedBy = '',
+  }) {
+    final i = _readiness.indexWhere((r) => r.id == itemId);
+    final file = ReadinessArtifact(
+      id: _uid('READ'),
+      fileName: fileName,
+      uploadDate: _today(),
+      uploadedBy: uploadedBy,
+    );
+    if (i < 0) return file;
+    _readiness[i].files.add(file);
+    // Bump status to In Progress on first upload (don't downgrade later states)
+    if (_readiness[i].status == ReadinessStatus.notStarted) {
+      _readiness[i].status = ReadinessStatus.inProgress;
+    }
+    _emit();
+    return file;
+  }
+
+  void removeReadinessFile({required String itemId, required String fileId}) {
+    final i = _readiness.indexWhere((r) => r.id == itemId);
+    if (i < 0) return;
+    _readiness[i].files.removeWhere((f) => f.id == fileId);
+    if (_readiness[i].files.isEmpty &&
+        _readiness[i].status == ReadinessStatus.inProgress) {
+      _readiness[i].status = ReadinessStatus.notStarted;
+    }
+    _emit();
+  }
+
+  void updateReadinessItem(String id,
+      {String? providedBy,
+      String? dueDate,
+      ReadinessStatus? status,
+      String? notes}) {
+    final i = _readiness.indexWhere((r) => r.id == id);
+    if (i < 0) return;
+    final r = _readiness[i];
+    if (providedBy != null) r.providedBy = providedBy;
+    if (dueDate != null) r.dueDate = dueDate;
+    if (status != null) r.status = status;
+    if (notes != null) r.notes = notes;
+    _emit();
+  }
+
   void resetAll() {
     _controls = seedControls();
     _evidence = [];
     _poams = [];
     _affirmations = seedAffirmations();
     _checklist = seedChecklist();
+    _readiness = seedReadinessChecklist();
     _emit();
   }
 }
