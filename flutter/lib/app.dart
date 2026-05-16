@@ -10,13 +10,13 @@ import 'screens/export_center_screen.dart';
 import 'screens/poam_tracker_screen.dart';
 import 'screens/settings_screen.dart';
 
-class CmmcAutopsyApp extends StatelessWidget {
-  const CmmcAutopsyApp({super.key});
+class CyberAutopsyApp extends StatelessWidget {
+  const CyberAutopsyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CMMC Autopsy',
+      title: 'cyberAutopsy',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -111,7 +111,7 @@ class _ShellState extends State<_Shell> {
         children: const [
           Icon(Icons.shield_outlined, color: Colors.white),
           SizedBox(width: 12),
-          Text('CMMC Autopsy', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text('cyberAutopsy', style: TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
       actions: [

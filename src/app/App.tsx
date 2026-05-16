@@ -120,7 +120,7 @@ export default function App() {
           <Toolbar>
             <Shield size={32} color="#FFFFFF" style={{ marginRight: 16 }} />
             <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
-              CMMC Autopsy
+              cyberAutopsy
             </Typography>
             <Box sx={{ flexGrow: 1 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
