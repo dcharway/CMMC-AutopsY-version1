@@ -1,9 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/cmmc_controls.dart';
 import '../data/evidence_requirements.dart';
 import '../data/models.dart';
+import '../state/auth.dart';
 import '../state/grc_store.dart';
 import '../widgets/common.dart';
 
@@ -589,16 +591,19 @@ class _RequiredEvidenceChecklist extends StatelessWidget {
   Widget build(BuildContext context) {
     final req = requirementFor(controlId);
     if (req == null) return const SizedBox.shrink();
-    final evidence = context.watch<GrcStore>().evidence
+    final evidence = context
+        .watch<GrcStore>()
+        .evidence
         .where((e) => e.controlId == controlId)
         .toList();
-    final uploadedKinds =
-        evidence.map((e) => e.artifactKind).where((k) => k.isNotEmpty).toSet();
 
-    int covered = 0;
-    for (final a in req.artifacts) {
-      if (uploadedKinds.contains(a)) covered++;
+    // Group uploads by their artifactKind for inline display under each row.
+    final byKind = <String, List<Evidence>>{};
+    for (final e in evidence) {
+      byKind.putIfAbsent(e.artifactKind, () => []).add(e);
     }
+    final covered =
+        req.artifacts.where((a) => byKind.containsKey(a)).length;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -632,34 +637,11 @@ class _RequiredEvidenceChecklist extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           for (final a in req.artifacts)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(children: [
-                Icon(
-                  uploadedKinds.contains(a)
-                      ? Icons.check_circle
-                      : Icons.radio_button_unchecked,
-                  size: 16,
-                  color: uploadedKinds.contains(a)
-                      ? const Color(0xFF16A34A)
-                      : const Color(0xFF9CA3AF),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    a,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: uploadedKinds.contains(a)
-                          ? const Color(0xFF15803D)
-                          : const Color(0xFF334155),
-                      decoration: uploadedKinds.contains(a)
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-                  ),
-                ),
-              ]),
+            _ArtifactUploadRow(
+              controlId: controlId,
+              artifact: a,
+              evidenceType: req.evidenceType,
+              uploaded: byKind[a] ?? const [],
             ),
           const SizedBox(height: 8),
           Wrap(spacing: 12, runSpacing: 4, children: [
@@ -688,6 +670,169 @@ class _RequiredEvidenceChecklist extends StatelessWidget {
           TextSpan(text: value),
         ],
       ),
+    );
+  }
+}
+
+class _ArtifactUploadRow extends StatefulWidget {
+  const _ArtifactUploadRow({
+    required this.controlId,
+    required this.artifact,
+    required this.evidenceType,
+    required this.uploaded,
+  });
+  final String controlId;
+  final String artifact;
+  final String evidenceType;
+  final List<Evidence> uploaded;
+
+  @override
+  State<_ArtifactUploadRow> createState() => _ArtifactUploadRowState();
+}
+
+class _ArtifactUploadRowState extends State<_ArtifactUploadRow> {
+  bool _busy = false;
+
+  Future<void> _pickAndUpload() async {
+    setState(() => _busy = true);
+    try {
+      final picked = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (picked == null || picked.files.isEmpty) return;
+      if (!mounted) return;
+      final store = context.read<GrcStore>();
+      final uploader = context.read<AuthState>().displayName ?? '';
+      for (final f in picked.files) {
+        store.addEvidence(
+          controlId: widget.controlId,
+          fileName: f.name,
+          description: widget.artifact,
+          uploadedBy: uploader,
+          tags: widget.evidenceType.isEmpty ? [] : [widget.evidenceType],
+          artifactKind: widget.artifact,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(
+            '${picked.files.length} file(s) attached to ${widget.controlId}',
+          ),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUploads = widget.uploaded.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(
+              hasUploads ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 16,
+              color: hasUploads
+                  ? const Color(0xFF16A34A)
+                  : const Color(0xFF9CA3AF),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.artifact,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: hasUploads
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF334155),
+                  fontWeight: hasUploads ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            _busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      minimumSize: const Size(0, 28),
+                      foregroundColor: const Color(0xFF2563EB),
+                      side: const BorderSide(color: Color(0xFFBFDBFE)),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 14),
+                    label: Text(hasUploads ? 'Add file' : 'Upload',
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600)),
+                    onPressed: _pickAndUpload,
+                  ),
+          ]),
+          if (hasUploads)
+            Padding(
+              padding: const EdgeInsets.only(left: 24, top: 4, bottom: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final e in widget.uploaded)
+                    _UploadedFileChip(evidence: e),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UploadedFileChip extends StatelessWidget {
+  const _UploadedFileChip({required this.evidence});
+  final Evidence evidence;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = evidence.status;
+    final statusColor = switch (status) {
+      EvidenceStatus.valid => const Color(0xFF16A34A),
+      EvidenceStatus.expiringSoon => const Color(0xFFF59E0B),
+      EvidenceStatus.expired => const Color(0xFFDC2626),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Icon(Icons.description_outlined,
+            size: 14, color: statusColor),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            evidence.fileName,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF1F2937)),
+          ),
+        ),
+        Text(evidence.uploadDate,
+            style: const TextStyle(
+                fontSize: 10, color: Color(0xFF6B7280))),
+        IconButton(
+          tooltip: 'Remove',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+          icon: const Icon(Icons.close,
+              size: 14, color: Color(0xFF9CA3AF)),
+          onPressed: () =>
+              context.read<GrcStore>().removeEvidence(evidence.id),
+        ),
+      ]),
     );
   }
 }
