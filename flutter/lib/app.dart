@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'screens/admin_home_screen.dart';
 import 'screens/affirmations_screen.dart';
 import 'screens/ai_insights_screen.dart';
 import 'screens/assessment_workflow_screen.dart';
@@ -9,41 +11,29 @@ import 'screens/evidence_repository_screen.dart';
 import 'screens/export_center_screen.dart';
 import 'screens/poam_tracker_screen.dart';
 import 'screens/settings_screen.dart';
+import 'state/auth.dart';
 
 class CyberAutopsyApp extends StatelessWidget {
   const CyberAutopsyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'cyberAutopsy',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
-        scaffoldBackgroundColor: Colors.white,
-        cardTheme: const CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: Color(0xFFE5E7EB)),
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-          ),
-        ),
-      ),
-      home: const _Shell(),
-    );
-  }
+  Widget build(BuildContext context) => const _Shell();
 }
 
 class _NavEntry {
-  const _NavEntry(this.label, this.icon, this.builder, {this.badge});
+  const _NavEntry(this.label, this.icon, this.builder,
+      {this.badge, this.adminOnly = false});
   final String label;
   final IconData icon;
   final WidgetBuilder builder;
   final String? badge;
+  final bool adminOnly;
 }
 
 final _navEntries = <_NavEntry>[
+  _NavEntry('Admin Home', Icons.workspace_premium_outlined,
+      (_) => const AdminHomeScreen(),
+      adminOnly: true),
   _NavEntry('Dashboard', Icons.dashboard_outlined, (_) => const DashboardScreen()),
   _NavEntry('Control Registry', Icons.fact_check_outlined, (_) => const ControlRegistryScreen()),
   _NavEntry('POA&M Tracker', Icons.warning_amber_outlined, (_) => const PoamTrackerScreen()),
@@ -64,20 +54,37 @@ class _Shell extends StatefulWidget {
 
 class _ShellState extends State<_Shell> {
   int _index = 0;
+  bool _initialized = false;
+
+  List<_NavEntry> _visibleEntries(AuthState auth) {
+    return _navEntries
+        .where((e) => !e.adminOnly || auth.isAdmin)
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 900;
-    final entry = _navEntries[_index];
+    final auth = context.watch<AuthState>();
+    final visible = _visibleEntries(auth);
 
+    // First build after login: admins land on Admin Home, contributors on Dashboard.
+    if (!_initialized) {
+      _initialized = true;
+      _index = 0; // first visible entry is Admin Home for admins, Dashboard otherwise
+    }
+    if (_index >= visible.length) _index = 0;
+
+    final isWide = MediaQuery.of(context).size.width >= 900;
+    final entry = visible[_index];
     final body = Builder(builder: (ctx) => entry.builder(ctx));
 
     if (isWide) {
       return Scaffold(
-        appBar: _buildAppBar(context),
+        appBar: _buildAppBar(context, entry),
         body: Row(
           children: [
             _Sidebar(
+              entries: visible,
               index: _index,
               onSelect: (i) => setState(() => _index = i),
             ),
@@ -88,9 +95,10 @@ class _ShellState extends State<_Shell> {
     }
 
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(context, entry),
       drawer: Drawer(
         child: _Sidebar(
+          entries: visible,
           index: _index,
           inDrawer: true,
           onSelect: (i) {
@@ -103,7 +111,8 @@ class _ShellState extends State<_Shell> {
     );
   }
 
-  AppBar _buildAppBar(BuildContext context) {
+  AppBar _buildAppBar(BuildContext context, _NavEntry entry) {
+    final auth = context.watch<AuthState>();
     return AppBar(
       backgroundColor: const Color(0xFF030213),
       foregroundColor: Colors.white,
@@ -122,19 +131,67 @@ class _ShellState extends State<_Shell> {
         ],
       ),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
           child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: Text(
-                _navEntries[_index].label,
-                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
-                overflow: TextOverflow.ellipsis,
-              ),
+            child: Text(
+              entry.label,
+              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        PopupMenuButton<String>(
+          tooltip: 'Account',
+          icon: Row(mainAxisSize: MainAxisSize.min, children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: auth.isAdmin
+                  ? const Color(0xFFE9C56F)
+                  : const Color(0xFF60A5FA),
+              child: Icon(
+                auth.isAdmin ? Icons.workspace_premium : Icons.person,
+                size: 14,
+                color: const Color(0xFF030213),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.expand_more, size: 18, color: Colors.white),
+          ]),
+          itemBuilder: (ctx) => [
+            PopupMenuItem(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(auth.displayName ?? 'User',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, color: Colors.black)),
+                  Text(auth.email ?? '',
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF6B7280))),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'signout',
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.logout, size: 18),
+                title: Text('Sign out'),
+                dense: true,
+              ),
+            ),
+          ],
+          onSelected: (v) {
+            if (v == 'signout') {
+              context.read<AuthState>().signOut();
+            }
+          },
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -142,11 +199,13 @@ class _ShellState extends State<_Shell> {
 
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
+    required this.entries,
     required this.index,
     required this.onSelect,
     this.inDrawer = false,
   });
 
+  final List<_NavEntry> entries;
   final int index;
   final ValueChanged<int> onSelect;
   final bool inDrawer;
@@ -169,9 +228,9 @@ class _Sidebar extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (var i = 0; i < _navEntries.length; i++)
+                  for (var i = 0; i < entries.length; i++)
                     _SidebarItem(
-                      entry: _navEntries[i],
+                      entry: entries[i],
                       selected: i == index,
                       onTap: () => onSelect(i),
                     ),
