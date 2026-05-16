@@ -1,5 +1,46 @@
 import 'package:flutter/material.dart';
 
+/// Mobile-first page padding. Pinches the gutters on small screens so
+/// content tables / cards have more breathing room.
+EdgeInsets pagePadding(BuildContext context) {
+  final w = MediaQuery.of(context).size.width;
+  return EdgeInsets.symmetric(
+    horizontal: w < 600 ? 12 : 24,
+    vertical: w < 600 ? 16 : 24,
+  );
+}
+
+/// Returns true when the widget is rendering on a phone-class viewport.
+bool isCompact(BuildContext context) =>
+    MediaQuery.of(context).size.width < 600;
+
+/// Render two form fields side-by-side on tablet/desktop, stacked on mobile.
+class TwoColumn extends StatelessWidget {
+  const TwoColumn({super.key, required this.left, required this.right, this.gap = 12});
+  final Widget left;
+  final Widget right;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (ctx, c) {
+      if (c.maxWidth < 480) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [left, SizedBox(height: gap), right],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: left),
+          SizedBox(width: gap),
+          Expanded(child: right),
+        ],
+      );
+    });
+  }
+}
+
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title, this.subtitle, this.actions});
   final String title;
@@ -8,29 +49,48 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = isCompact(context);
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: TextStyle(
+              fontSize: compact ? 22 : 26,
+              fontWeight: FontWeight.w700,
+            )),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(subtitle!,
+              style: const TextStyle(color: Color(0xFF6B7280))),
+        ],
+      ],
+    );
+    if (actions == null || actions!.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: header,
+      );
+    }
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            const SizedBox(height: 12),
+            Row(children: [for (final a in actions!) Expanded(child: a)]),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                    )),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(subtitle!,
-                      style: const TextStyle(color: Color(0xFF6B7280))),
-                ],
-              ],
-            ),
-          ),
-          if (actions != null) ...actions!,
+          Expanded(child: header),
+          ...actions!,
         ],
       ),
     );

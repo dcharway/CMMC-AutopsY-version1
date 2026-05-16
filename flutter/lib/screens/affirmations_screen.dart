@@ -24,7 +24,7 @@ class AffirmationsScreen extends StatelessWidget {
     final r = computeReadiness(store);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -228,31 +228,26 @@ class _AffirmationCardState extends State<_AffirmationCard> {
                   'Affirmation due in $due days.',
                   const Color(0xFFF59E0B)),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _by,
-                  decoration: const InputDecoration(
-                      labelText: 'Affirmed by (Senior Official)',
-                      border: OutlineInputBorder()),
-                  onChanged: (v) => context
-                      .read<GrcStore>()
-                      .updateAffirmation(a.id, affirmedBy: v),
-                ),
+            TwoColumn(
+              left: TextField(
+                controller: _by,
+                decoration: const InputDecoration(
+                    labelText: 'Affirmed by (Senior Official)',
+                    border: OutlineInputBorder()),
+                onChanged: (v) => context
+                    .read<GrcStore>()
+                    .updateAffirmation(a.id, affirmedBy: v),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _due,
-                  decoration: const InputDecoration(
-                      labelText: 'Due date (YYYY-MM-DD)',
-                      border: OutlineInputBorder()),
-                  onChanged: (v) => context
-                      .read<GrcStore>()
-                      .updateAffirmation(a.id, dueDate: v),
-                ),
+              right: TextField(
+                controller: _due,
+                decoration: const InputDecoration(
+                    labelText: 'Due date (YYYY-MM-DD)',
+                    border: OutlineInputBorder()),
+                onChanged: (v) => context
+                    .read<GrcStore>()
+                    .updateAffirmation(a.id, dueDate: v),
               ),
-            ]),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _notes,

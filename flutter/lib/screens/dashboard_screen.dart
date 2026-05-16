@@ -19,7 +19,7 @@ class DashboardScreen extends StatelessWidget {
     final r = computeReadiness(store);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
