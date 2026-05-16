@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/cmmc_controls.dart';
+import '../data/evidence_requirements.dart';
 import '../data/models.dart';
 import '../state/grc_store.dart';
 import '../widgets/common.dart';
@@ -545,6 +546,8 @@ class _ControlEditorState extends State<_ControlEditor> {
               ),
             ),
             const SizedBox(height: 16),
+            _RequiredEvidenceChecklist(controlId: widget.control.id),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -573,6 +576,117 @@ class _ControlEditorState extends State<_ControlEditor> {
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RequiredEvidenceChecklist extends StatelessWidget {
+  const _RequiredEvidenceChecklist({required this.controlId});
+  final String controlId;
+
+  @override
+  Widget build(BuildContext context) {
+    final req = requirementFor(controlId);
+    if (req == null) return const SizedBox.shrink();
+    final evidence = context.watch<GrcStore>().evidence
+        .where((e) => e.controlId == controlId)
+        .toList();
+    final uploadedKinds =
+        evidence.map((e) => e.artifactKind).where((k) => k.isNotEmpty).toSet();
+
+    int covered = 0;
+    for (final a in req.artifacts) {
+      if (uploadedKinds.contains(a)) covered++;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.fact_check_outlined,
+                size: 16, color: Color(0xFF334155)),
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text('C3PAO-acceptable evidence',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A))),
+            ),
+            Text('$covered / ${req.artifacts.length} uploaded',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: covered == req.artifacts.length
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFF6B7280),
+                  fontWeight: FontWeight.w600,
+                )),
+          ]),
+          const SizedBox(height: 8),
+          for (final a in req.artifacts)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(children: [
+                Icon(
+                  uploadedKinds.contains(a)
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  size: 16,
+                  color: uploadedKinds.contains(a)
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFF9CA3AF),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    a,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: uploadedKinds.contains(a)
+                          ? const Color(0xFF15803D)
+                          : const Color(0xFF334155),
+                      decoration: uploadedKinds.contains(a)
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 12, runSpacing: 4, children: [
+            _kv('Type', req.evidenceType),
+            _kv('Sample', req.sample),
+          ]),
+          if (req.notes.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(req.notes,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF6B7280))),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(String label, String value) {
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
+        children: [
+          TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+          TextSpan(text: value),
+        ],
       ),
     );
   }

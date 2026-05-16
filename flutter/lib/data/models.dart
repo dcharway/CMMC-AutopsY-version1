@@ -184,6 +184,7 @@ class Evidence {
     this.version = 1,
     List<String>? tags,
     this.validNaming = false,
+    this.artifactKind = '',
   }) : tags = tags ?? [];
 
   final String id;
@@ -196,6 +197,10 @@ class Evidence {
   int version;
   List<String> tags;
   bool validNaming;
+
+  /// Which acceptable-evidence artifact this file satisfies for its control
+  /// (e.g. "AD/AAD Group Export"). Empty when the user uploaded free-form.
+  String artifactKind;
 
   EvidenceStatus get status {
     if (expirationDate.isEmpty) return EvidenceStatus.valid;
@@ -218,6 +223,7 @@ class Evidence {
         'version': version,
         'tags': tags,
         'validNaming': validNaming,
+        'artifactKind': artifactKind,
       };
 
   static Evidence fromJson(Map<String, dynamic> j) => Evidence(
@@ -231,6 +237,7 @@ class Evidence {
         version: j['version'] ?? 1,
         tags: List<String>.from(j['tags'] ?? []),
         validNaming: j['validNaming'] ?? false,
+        artifactKind: j['artifactKind'] ?? '',
       );
 }
 

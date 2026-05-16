@@ -130,6 +130,7 @@ class GrcStore extends ChangeNotifier {
     String expirationDate = '',
     String uploadedBy = '',
     List<String>? tags,
+    String artifactKind = '',
   }) {
     final id = _uid('EV');
     final ev = Evidence(
@@ -142,6 +143,7 @@ class GrcStore extends ChangeNotifier {
       uploadedBy: uploadedBy,
       tags: tags ?? [],
       validNaming: isValidNaming(fileName),
+      artifactKind: artifactKind,
     );
     _evidence.add(ev);
     final ci = _controls.indexWhere((c) => c.id == controlId);
