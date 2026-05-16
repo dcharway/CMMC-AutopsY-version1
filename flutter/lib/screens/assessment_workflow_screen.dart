@@ -35,7 +35,7 @@ class AssessmentWorkflowScreen extends StatelessWidget {
     final readyForAudit = r.readiness >= 90 && firstPhaseComplete;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

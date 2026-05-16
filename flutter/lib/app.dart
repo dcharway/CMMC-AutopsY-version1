@@ -154,7 +154,7 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 280,
+      width: inDrawer ? null : 280,
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         border: inDrawer

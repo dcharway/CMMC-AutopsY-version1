@@ -11,7 +11,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<GrcStore>();
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -25,7 +25,7 @@ class EvidenceRepositoryScreen extends StatelessWidget {
     final misnamed = ev.where((e) => !e.validNaming).length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,75 +131,145 @@ class _EvidenceRow extends StatelessWidget {
       EvidenceStatus.expiringSoon => 'Expiring Soon',
       EvidenceStatus.expired => 'Expired',
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(item.validNaming ? Icons.verified_outlined : Icons.report_outlined,
-              size: 18,
-              color: item.validNaming
-                  ? const Color(0xFF16A34A)
-                  : const Color(0xFFDC2626)),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.fileName,
-                    style: const TextStyle(fontWeight: FontWeight.w500)),
-                if (item.description.isNotEmpty)
-                  Text(item.description,
+    final namingIcon = Icon(
+      item.validNaming ? Icons.verified_outlined : Icons.report_outlined,
+      size: 18,
+      color: item.validNaming
+          ? const Color(0xFF16A34A)
+          : const Color(0xFFDC2626),
+    );
+    final deleteBtn = IconButton(
+      icon: const Icon(Icons.delete_outline, size: 18),
+      onPressed: () => context.read<GrcStore>().removeEvidence(item.id),
+    );
+
+    return LayoutBuilder(builder: (ctx, c) {
+      final compact = c.maxWidth < 720;
+      if (compact) {
+        return Container(
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                namingIcon,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(item.fileName,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                deleteBtn,
+              ]),
+              if (item.description.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 26),
+                  child: Text(item.description,
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFF6B7280))),
-                if (item.tags.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        for (final t in item.tags)
-                          TagChip(
-                              label: t,
-                              color: const Color(0xFF6366F1),
-                              dense: true),
-                      ],
+                ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 26),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(item.controlId,
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 12)),
+                    Text('${item.uploadDate} · v${item.version}',
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF6B7280))),
+                    if (item.expirationDate.isNotEmpty)
+                      Text('exp ${item.expirationDate}',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF6B7280))),
+                    TagChip(
+                        label: statusLabel, color: statusColor, dense: true),
+                    for (final t in item.tags)
+                      TagChip(
+                          label: t,
+                          color: const Color(0xFF6366F1),
+                          dense: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            namingIcon,
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.fileName,
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  if (item.description.isNotEmpty)
+                    Text(item.description,
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF6B7280))),
+                  if (item.tags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          for (final t in item.tags)
+                            TagChip(
+                                label: t,
+                                color: const Color(0xFF6366F1),
+                                dense: true),
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(
-            width: 100,
-            child: Text(item.controlId,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-          ),
-          SizedBox(
-            width: 110,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.uploadDate, style: const TextStyle(fontSize: 12)),
-                Text('v${item.version}',
-                    style: const TextStyle(
-                        fontSize: 11, color: Color(0xFF6B7280))),
-              ],
+            SizedBox(
+              width: 100,
+              child: Text(item.controlId,
+                  style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 12)),
             ),
-          ),
-          SizedBox(
-            width: 110,
-            child: Text(item.expirationDate.isEmpty ? '—' : item.expirationDate,
-                style: const TextStyle(fontSize: 12)),
-          ),
-          TagChip(label: statusLabel, color: statusColor, dense: true),
-          IconButton(
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: () => context.read<GrcStore>().removeEvidence(item.id)),
-        ],
-      ),
-    );
+            SizedBox(
+              width: 110,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.uploadDate, style: const TextStyle(fontSize: 12)),
+                  Text('v${item.version}',
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF6B7280))),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 110,
+              child: Text(
+                  item.expirationDate.isEmpty ? '—' : item.expirationDate,
+                  style: const TextStyle(fontSize: 12)),
+            ),
+            TagChip(label: statusLabel, color: statusColor, dense: true),
+            deleteBtn,
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -359,24 +429,19 @@ class _UploadDialogState extends State<_UploadDialog> {
                 ),
               ),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _uploadedBy,
-                  decoration: const InputDecoration(
-                      labelText: 'Uploaded by', border: OutlineInputBorder()),
-                ),
+            TwoColumn(
+              left: TextField(
+                controller: _uploadedBy,
+                decoration: const InputDecoration(
+                    labelText: 'Uploaded by', border: OutlineInputBorder()),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _expiry,
-                  decoration: const InputDecoration(
-                      labelText: 'Expiration date (YYYY-MM-DD)',
-                      border: OutlineInputBorder()),
-                ),
+              right: TextField(
+                controller: _expiry,
+                decoration: const InputDecoration(
+                    labelText: 'Expiration date (YYYY-MM-DD)',
+                    border: OutlineInputBorder()),
               ),
-            ]),
+            ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

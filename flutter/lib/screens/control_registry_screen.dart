@@ -44,7 +44,7 @@ class _ControlRegistryScreenState extends State<ControlRegistryScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -135,64 +135,75 @@ class _Filters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final search = TextField(
+      onChanged: onQuery,
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.search, size: 18),
+        hintText: 'Search by ID, name, family…',
+        isDense: true,
+        border: OutlineInputBorder(),
+      ),
+    );
+    final familyDd = DropdownButtonFormField<String>(
+      value: family,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Family',
+        isDense: true,
+        border: OutlineInputBorder(),
+      ),
+      items: [
+        const DropdownMenuItem(value: 'All', child: Text('All families')),
+        for (final f in controlFamilies)
+          DropdownMenuItem(
+              value: f.code,
+              child: Text('${f.code} — ${f.name}',
+                  overflow: TextOverflow.ellipsis)),
+      ],
+      onChanged: (v) => onFamily(v ?? 'All'),
+    );
+    final statusDd = DropdownButtonFormField<String>(
+      value: status,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Status',
+        isDense: true,
+        border: OutlineInputBorder(),
+      ),
+      items: [
+        const DropdownMenuItem(value: 'All', child: Text('All statuses')),
+        for (final s in ControlStatus.values)
+          DropdownMenuItem(value: s.label, child: Text(s.label)),
+      ],
+      onChanged: (v) => onStatus(v ?? 'All'),
+    );
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.start,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 320,
-              child: TextField(
-                onChanged: onQuery,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search, size: 18),
-                  hintText: 'Search by ID, name, family, or text…',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 220,
-              child: DropdownButtonFormField<String>(
-                value: family,
-                decoration: const InputDecoration(
-                  labelText: 'Family',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: 'All', child: Text('All families')),
-                  for (final f in controlFamilies)
-                    DropdownMenuItem(
-                        value: f.code, child: Text('${f.code} — ${f.name}')),
-                ],
-                onChanged: (v) => onFamily(v ?? 'All'),
-              ),
-            ),
-            SizedBox(
-              width: 200,
-              child: DropdownButtonFormField<String>(
-                value: status,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: 'All', child: Text('All statuses')),
-                  for (final s in ControlStatus.values)
-                    DropdownMenuItem(value: s.label, child: Text(s.label)),
-                ],
-                onChanged: (v) => onStatus(v ?? 'All'),
-              ),
-            ),
-          ],
-        ),
+        child: LayoutBuilder(builder: (ctx, c) {
+          if (c.maxWidth < 600) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: familyDd),
+                  const SizedBox(width: 12),
+                  Expanded(child: statusDd),
+                ]),
+              ],
+            );
+          }
+          return Row(children: [
+            Expanded(flex: 3, child: search),
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: familyDd),
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: statusDd),
+          ]);
+        }),
       ),
     );
   }
@@ -212,70 +223,134 @@ class _ControlRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final family =
         controlFamilies.firstWhere((f) => f.code == control.familyCode);
-    return InkWell(
-      onTap: onEdit,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 110,
-              child: Text(control.id,
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+    return LayoutBuilder(builder: (ctx, c) {
+      final compact = c.maxWidth < 720;
+      if (compact) {
+        return InkWell(
+          onTap: onEdit,
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
             ),
-            SizedBox(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Text(control.id,
+                      style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13)),
+                  const SizedBox(width: 8),
+                  TagChip(
+                      label: family.code, color: family.color, dense: true),
+                  const Spacer(),
+                  if (control.evidenceIds.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.attach_file,
+                            size: 13, color: Color(0xFF6B7280)),
+                        Text(' ${control.evidenceIds.length}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF6B7280))),
+                      ]),
+                    ),
+                  Icon(Icons.chevron_right,
+                      size: 18, color: Colors.grey.shade400),
+                ]),
+                const SizedBox(height: 6),
+                Text(control.practice,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                Text('SSP §${control.ssp}',
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF6B7280))),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Flexible(
+                    child: _StatusDropdown(
+                        value: control.status, onChanged: onStatusChanged),
+                  ),
+                  const SizedBox(width: 8),
+                  TagChip(
+                      label: control.riskLevel.label,
+                      color: control.riskLevel.color,
+                      dense: true),
+                ]),
+              ],
+            ),
+          ),
+        );
+      }
+      return InkWell(
+        onTap: onEdit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 110,
+                child: Text(control.id,
+                    style: const TextStyle(
+                        fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+              ),
+              SizedBox(
+                  width: 60,
+                  child: TagChip(
+                      label: family.code, color: family.color, dense: true)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(control.practice,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis),
+                      Text('SSP §${control.ssp}',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF6B7280))),
+                    ],
+                  ),
+                ),
+              ),
+              _StatusDropdown(
+                  value: control.status, onChanged: onStatusChanged),
+              const SizedBox(width: 8),
+              SizedBox(
+                  width: 80,
+                  child: TagChip(
+                      label: control.riskLevel.label,
+                      color: control.riskLevel.color,
+                      dense: true)),
+              const SizedBox(width: 8),
+              SizedBox(
                 width: 60,
-                child: TagChip(
-                    label: family.code, color: family.color, dense: true)),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(control.practice,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis),
-                    Text('SSP §${control.ssp}',
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF6B7280))),
+                    const Icon(Icons.attach_file,
+                        size: 14, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 2),
+                    Text('${control.evidenceIds.length}',
+                        style: const TextStyle(fontSize: 12)),
                   ],
                 ),
               ),
-            ),
-            _StatusDropdown(
-                value: control.status, onChanged: onStatusChanged),
-            const SizedBox(width: 8),
-            SizedBox(
-                width: 80,
-                child: TagChip(
-                    label: control.riskLevel.label,
-                    color: control.riskLevel.color,
-                    dense: true)),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.attach_file,
-                      size: 14, color: Color(0xFF6B7280)),
-                  const SizedBox(width: 2),
-                  Text('${control.evidenceIds.length}',
-                      style: const TextStyle(fontSize: 12)),
-                ],
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: onEdit,
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              onPressed: onEdit,
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 
@@ -297,6 +372,7 @@ class _StatusDropdown extends StatelessWidget {
         child: DropdownButton<ControlStatus>(
           value: value,
           isDense: true,
+          isExpanded: true,
           icon: Icon(Icons.expand_more, size: 16, color: value.color),
           style: TextStyle(
               color: value.color, fontWeight: FontWeight.w600, fontSize: 13),

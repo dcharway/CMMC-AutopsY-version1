@@ -28,7 +28,7 @@ class PoamTrackerScreen extends StatelessWidget {
         .length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -406,33 +406,28 @@ class _PoamEditorState extends State<_PoamEditor> {
                   labelText: 'Finding', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: DropdownButtonFormField<RiskLevel>(
-                  value: _risk,
-                  decoration: const InputDecoration(
-                      labelText: 'Risk', border: OutlineInputBorder()),
-                  items: [
-                    for (final r in RiskLevel.values)
-                      DropdownMenuItem(value: r, child: Text(r.label)),
-                  ],
-                  onChanged: (v) => setState(() => _risk = v ?? _risk),
-                ),
+            TwoColumn(
+              left: DropdownButtonFormField<RiskLevel>(
+                value: _risk,
+                decoration: const InputDecoration(
+                    labelText: 'Risk', border: OutlineInputBorder()),
+                items: [
+                  for (final r in RiskLevel.values)
+                    DropdownMenuItem(value: r, child: Text(r.label)),
+                ],
+                onChanged: (v) => setState(() => _risk = v ?? _risk),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<PoamStatus>(
-                  value: _status,
-                  decoration: const InputDecoration(
-                      labelText: 'Status', border: OutlineInputBorder()),
-                  items: [
-                    for (final s in PoamStatus.values)
-                      DropdownMenuItem(value: s, child: Text(s.label)),
-                  ],
-                  onChanged: (v) => setState(() => _status = v ?? _status),
-                ),
+              right: DropdownButtonFormField<PoamStatus>(
+                value: _status,
+                decoration: const InputDecoration(
+                    labelText: 'Status', border: OutlineInputBorder()),
+                items: [
+                  for (final s in PoamStatus.values)
+                    DropdownMenuItem(value: s, child: Text(s.label)),
+                ],
+                onChanged: (v) => setState(() => _status = v ?? _status),
               ),
-            ]),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _plan,
@@ -441,24 +436,19 @@ class _PoamEditorState extends State<_PoamEditor> {
                   labelText: 'Remediation plan', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _owner,
-                  decoration: const InputDecoration(
-                      labelText: 'Owner', border: OutlineInputBorder()),
-                ),
+            TwoColumn(
+              left: TextField(
+                controller: _owner,
+                decoration: const InputDecoration(
+                    labelText: 'Owner', border: OutlineInputBorder()),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _due,
-                  decoration: const InputDecoration(
-                      labelText: 'Due (YYYY-MM-DD)',
-                      border: OutlineInputBorder()),
-                ),
+              right: TextField(
+                controller: _due,
+                decoration: const InputDecoration(
+                    labelText: 'Due (YYYY-MM-DD)',
+                    border: OutlineInputBorder()),
               ),
-            ]),
+            ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

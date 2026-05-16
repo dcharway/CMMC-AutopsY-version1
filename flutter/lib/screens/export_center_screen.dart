@@ -46,7 +46,7 @@ class _ExportCenterScreenState extends State<ExportCenterScreen> {
     ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
