@@ -74,19 +74,25 @@ class _Greeting extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            GoldEyebrow('Dashboard'),
-            SizedBox(height: 4),
-            Text('CyberAutopsy GRC',
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              GoldEyebrow('Dashboard'),
+              SizedBox(height: 4),
+              Text(
+                'CyberAutopsy GRC',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: MT.textHigh)),
-          ],
+                    color: MT.textHigh),
+              ),
+            ],
+          ),
         ),
-        const Spacer(),
         IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_none, color: MT.textHigh),
@@ -135,22 +141,33 @@ class _RiskScoreHero extends StatelessWidget {
               children: [
                 const GoldEyebrow('Total Risk Score'),
                 const SizedBox(height: 8),
-                GoldText(
-                  '$totalRiskScore',
-                  style: const TextStyle(
-                      fontSize: 44,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: GoldText(
+                    '$totalRiskScore',
+                    style: const TextStyle(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Row(children: const [
                   Icon(Icons.trending_up, size: 14, color: MT.success),
                   SizedBox(width: 4),
-                  Text('+12% from last month',
+                  Flexible(
+                    child: Text(
+                      '+12% from last month',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
                       style: TextStyle(
                           fontSize: 12,
                           color: MT.success,
-                          fontWeight: FontWeight.w600)),
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ]),
               ],
             ),
@@ -266,21 +283,36 @@ class _KpiCard extends StatelessWidget {
               ),
               child: Icon(data.icon, color: data.accent, size: 14),
             ),
-            const Spacer(),
-            Text(data.label,
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                data.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                textAlign: TextAlign.right,
                 style: const TextStyle(
                     fontSize: 11,
                     color: MT.textMid,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
           ]),
           const SizedBox(height: 14),
-          GoldText(
-            data.value,
-            style: const TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w800, height: 1.0),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: GoldText(
+              data.value,
+              style: const TextStyle(
+                  fontSize: 28, fontWeight: FontWeight.w800, height: 1.0),
+            ),
           ),
           const SizedBox(height: 4),
           Text(data.helper,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
               style: const TextStyle(fontSize: 11, color: MT.textLow)),
         ],
       ),
@@ -304,12 +336,17 @@ class _QuickActions extends StatelessWidget {
       Expanded(
         child: OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
             side: const BorderSide(color: MT.strokeSoft),
           ),
           icon: const Icon(Icons.insights_outlined,
               color: MT.goldLight, size: 18),
-          label: const Text('View Reports'),
+          label: const Text(
+            'View Reports',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
           onPressed: () => _notImpl(context),
         ),
       ),
