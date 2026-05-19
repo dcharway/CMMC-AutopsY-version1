@@ -120,27 +120,35 @@ class GoldButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final children = <Widget>[];
+    if (icon != null) {
+      children.addAll([
+        Icon(icon, size: 18, color: MT.ink),
+        const SizedBox(width: 8),
+      ]);
+    }
+    children.add(
+      Flexible(
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: const TextStyle(
+              color: MT.ink, fontWeight: FontWeight.w700, fontSize: 14),
+        ),
+      ),
+    );
     final inner = Row(
       mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 18, color: MT.ink),
-          const SizedBox(width: 8),
-        ],
-        Text(label,
-            style: const TextStyle(
-                color: MT.ink,
-                fontWeight: FontWeight.w700,
-                fontSize: 14)),
-      ],
+      children: children,
     );
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onPressed,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
           gradient: MT.goldGradient,
           borderRadius: BorderRadius.circular(14),
