@@ -14,6 +14,7 @@ import 'screens/profile_screen.dart';
 import 'screens/readiness_checklist_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/auth.dart';
+import 'theme/metallic_theme.dart';
 
 class CyberAutopsyApp extends StatelessWidget {
   const CyberAutopsyApp({super.key});
@@ -60,6 +61,7 @@ class _Shell extends StatefulWidget {
 class _ShellState extends State<_Shell> {
   int _index = 0;
   bool _initialized = false;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   List<_NavEntry> _visibleEntries(AuthState auth) {
     return _navEntries
@@ -99,9 +101,16 @@ class _ShellState extends State<_Shell> {
       );
     }
 
+    // Mobile: bottom nav with 4 primary destinations + More opens the full
+    // sidebar in a drawer.
+    final navTargets = _bottomNavTargets(visible);
+    int bottomIndex = navTargets.indexWhere((t) => t.entryIndex == _index);
+    if (bottomIndex < 0) bottomIndex = navTargets.length - 1; // More
     return Scaffold(
+      key: _scaffoldKey,
       appBar: _buildAppBar(context, entry),
       drawer: Drawer(
+        backgroundColor: MT.inkSoft,
         child: _Sidebar(
           entries: visible,
           index: _index,
@@ -113,23 +122,90 @@ class _ShellState extends State<_Shell> {
         ),
       ),
       body: body,
+      bottomNavigationBar: NavigationBar(
+        height: 64,
+        selectedIndex: bottomIndex,
+        onDestinationSelected: (i) {
+          final target = navTargets[i];
+          if (target.opensDrawer) {
+            _scaffoldKey.currentState?.openDrawer();
+            return;
+          }
+          setState(() => _index = target.entryIndex);
+        },
+        destinations: [
+          for (final t in navTargets)
+            NavigationDestination(
+              icon: Icon(t.icon),
+              label: t.label,
+            ),
+        ],
+      ),
     );
+  }
+
+  List<_BottomTarget> _bottomNavTargets(List<_NavEntry> visible) {
+    // Pick the 4 most useful destinations for phone-class navigation, then
+    // surface the remaining entries via "More" → drawer.
+    final preferred = [
+      'Dashboard',
+      'Control Registry',
+      'POA&M Tracker',
+      'Readiness Checklist',
+    ];
+    final targets = <_BottomTarget>[];
+    for (final label in preferred) {
+      final i = visible.indexWhere((e) => e.label == label);
+      if (i < 0) continue;
+      final entry = visible[i];
+      targets.add(_BottomTarget(
+        entryIndex: i,
+        icon: entry.icon,
+        label: _shortLabel(entry.label),
+      ));
+    }
+    targets.add(const _BottomTarget(
+      entryIndex: -1,
+      icon: Icons.menu_rounded,
+      label: 'More',
+      opensDrawer: true,
+    ));
+    return targets;
+  }
+
+  String _shortLabel(String label) {
+    return switch (label) {
+      'Control Registry' => 'Controls',
+      'POA&M Tracker' => 'POA&Ms',
+      'Readiness Checklist' => 'Readiness',
+      _ => label,
+    };
   }
 
   AppBar _buildAppBar(BuildContext context, _NavEntry entry) {
     final auth = context.watch<AuthState>();
     return AppBar(
-      backgroundColor: const Color(0xFF030213),
-      foregroundColor: Colors.white,
+      backgroundColor: MT.ink,
+      foregroundColor: MT.textHigh,
       title: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.shield_outlined, color: Colors.white),
-          SizedBox(width: 12),
-          Flexible(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              gradient: MT.goldGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: Icon(Icons.shield_outlined, color: MT.ink, size: 16),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Flexible(
             child: Text(
               'cyberAutopsy',
-              style: TextStyle(fontWeight: FontWeight.w600),
+              style: TextStyle(fontWeight: FontWeight.w700, color: MT.textHigh),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -141,7 +217,7 @@ class _ShellState extends State<_Shell> {
           child: Center(
             child: Text(
               entry.label,
-              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+              style: const TextStyle(color: MT.textMid, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -150,15 +226,20 @@ class _ShellState extends State<_Shell> {
         PopupMenuButton<String>(
           tooltip: 'Account',
           icon: Row(mainAxisSize: MainAxisSize.min, children: [
-            CircleAvatar(
-              radius: 12,
-              backgroundColor: auth.isAdmin
-                  ? const Color(0xFFE9C56F)
-                  : const Color(0xFF60A5FA),
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                gradient: auth.isAdmin
+                    ? MT.goldGradient
+                    : const LinearGradient(
+                        colors: [Color(0xFF60A5FA), Color(0xFF818CF8)]),
+                borderRadius: BorderRadius.circular(13),
+              ),
               child: Icon(
                 auth.isAdmin ? Icons.workspace_premium : Icons.person,
                 size: 14,
-                color: const Color(0xFF030213),
+                color: MT.ink,
               ),
             ),
             const SizedBox(width: 4),
@@ -202,6 +283,19 @@ class _ShellState extends State<_Shell> {
   }
 }
 
+class _BottomTarget {
+  const _BottomTarget({
+    required this.entryIndex,
+    required this.icon,
+    required this.label,
+    this.opensDrawer = false,
+  });
+  final int entryIndex;
+  final IconData icon;
+  final String label;
+  final bool opensDrawer;
+}
+
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.entries,
@@ -220,10 +314,10 @@ class _Sidebar extends StatelessWidget {
     return Container(
       width: inDrawer ? null : 280,
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: MT.inkSoft,
         border: inDrawer
             ? null
-            : const Border(right: BorderSide(color: Color(0xFFE5E7EB))),
+            : const Border(right: BorderSide(color: MT.stroke)),
       ),
       child: SafeArea(
         child: Column(
@@ -247,29 +341,34 @@ class _Sidebar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  border: Border.all(color: const Color(0xFFDBEAFE)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: MT.surface,
+                  border: Border.all(color: MT.goldBase.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'CMMC Level 2',
-                      style: TextStyle(
-                        color: Color(0xFF2563EB),
-                        fontWeight: FontWeight.w600,
+                  children: [
+                    Row(children: const [
+                      Icon(Icons.shield_outlined,
+                          color: MT.goldLight, size: 14),
+                      SizedBox(width: 6),
+                      Text(
+                        'CMMC Level 2',
+                        style: TextStyle(
+                          color: MT.goldLight,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                    ]),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '120 practices across 14 control families',
+                      style: TextStyle(fontSize: 12, color: MT.textMid),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      '110 practices across 14 control families',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
+                    const SizedBox(height: 4),
+                    const Text(
                       'Based on NIST SP 800-171',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: TextStyle(fontSize: 11, color: MT.textLow),
                     ),
                   ],
                 ),
@@ -298,10 +397,16 @@ class _SidebarItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
-        color: selected ? const Color(0xFFEEF2FF) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        color: selected
+            ? MT.goldBase.withOpacity(0.12)
+            : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+              color: selected ? MT.goldBase.withOpacity(0.45) : Colors.transparent),
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -309,19 +414,15 @@ class _SidebarItem extends StatelessWidget {
               children: [
                 Icon(entry.icon,
                     size: 20,
-                    color: selected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF6B7280)),
+                    color: selected ? MT.goldLight : MT.textMid),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     entry.label,
                     style: TextStyle(
                       fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.normal,
-                      color: selected
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF1F2937),
+                          selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? MT.goldLight : MT.textHigh,
                     ),
                   ),
                 ),
@@ -330,15 +431,15 @@ class _SidebarItem extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED),
+                      gradient: MT.goldGradient,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       entry.badge!,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: MT.ink,
                         fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
