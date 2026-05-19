@@ -5,6 +5,7 @@ import 'app.dart';
 import 'screens/login_screen.dart';
 import 'state/auth.dart';
 import 'state/grc_store.dart';
+import 'theme/metallic_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,18 +29,9 @@ class _Root extends StatelessWidget {
     return MaterialApp(
       title: 'cyberAutopsy',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
-        scaffoldBackgroundColor: Colors.white,
-        cardTheme: const CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: Color(0xFFE5E7EB)),
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-          ),
-        ),
-      ),
+      theme: MT.themeData(),
+      darkTheme: MT.themeData(),
+      themeMode: ThemeMode.dark,
       home: const _AuthGate(),
     );
   }
